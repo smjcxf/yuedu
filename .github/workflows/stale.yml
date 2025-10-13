@@ -31,6 +31,23 @@ jobs:
           
           # 删除空的临时目录
           rm -rf Luoyacheng_legado
+          
+      - name: Clone Luoyacheng_yuedu
+        run: |
+          # 克隆目标仓库到临时目录
+          git clone --depth=1 --branch master https://github.com/Luoyacheng/yuedu Luoyacheng_yuedu
+          
+          # 清理旧目录（如果存在）
+          if [ -d "legado(Luoyacheng)" ]; then
+            rm -rf "legado(Luoyacheng)"
+          fi
+          
+          # 创建目标目录并移动文件
+          mkdir -p "legado(Luoyacheng)"
+          mv Luoyacheng_legado/* "yuedu(Luoyacheng)yuan/"
+          
+          # 删除空的临时目录
+          rm -rf yuedu(Luoyacheng)yuan
   
       - name: Update timestamp
         run: echo "Backup run at $(date)" > backup-timestamp.txt
