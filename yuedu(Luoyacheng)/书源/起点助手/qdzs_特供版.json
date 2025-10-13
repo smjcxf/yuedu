@@ -1,0 +1,69 @@
+[{
+  "bookSourceGroup": "📓,起点助手",
+  "bookSourceName": "🌈起点助手",
+  "bookSourceType": 0,
+  "bookSourceUrl": "https://起点助手2.luoyacheng.ip-ddns.com",
+  "bookUrlPattern": "http://127.0.0.1/qdzs/.*|https://.*qidian.com/book/\\d{5,}/?",
+  "concurrentRate": "3/1000",
+  "customOrder": 1,
+  "enabled": true,
+  "enabledCookieJar": true,
+  "enabledExplore": true,
+  "exploreUrl": "@js:\nlet banben=\"2.0.2\";\nlet r=eval(java.importScript(lycurl)+'')[0];\nr&&cache.putMemory(lycnm,r);\neval(r.exploreUrl.replace('@js:',''));",
+  "jsLib": "{\"qdzs\":\"https://gitee.com/lyc486/yuedu2/raw/main/书源/起点助手/jj/qdzslib.js\"}",
+  "lastUpdateTime": 1757690770943,
+  "loginUi": "@js:\neval((eval(java.importScript(lycurl)+'')[0].loginUi||'').replace('@js:',''))",
+  "loginUrl": "eval((eval(java.importScript(lycurl)+'')[0].loginUrl))",
+  "respondTime": 180000,
+  "ruleBookInfo": {
+    "author": "au",
+    "coverUrl": "cu",
+    "init": "@js:\nlet r=cache.getFromMemory(lycnm);\nif (!r) {\njava.downloadFile(lycurl);\nr=eval(java.readTxtFile(java.md5Encode16(lycurl)+'.json')+'')[0];\nr&&cache.putMemory(lycnm,r);}\neval(r.ruleBookInfo.init.replace('@js:',''));",
+    "kind": "kd",
+    "lastChapter": "lc",
+    "name": "nm",
+    "tocUrl": "tur",
+    "wordCount": "wc"
+  },
+  "ruleContent": {
+    "content": "@js:\nlet r=cache.getFromMemory(lycnm);\nif (!r) {\nr=eval(java.readTxtFile(java.md5Encode16(lycurl)+'.json')+'')[0];cache.putMemory(lycnm,r);}\neval(r.ruleContent.content.replace('@js:',''));",
+    "nextContentUrl": "@js:\njava.getElement(cache.getFromMemory(lycnm).ruleContent.nextContentUrl)",
+    "payAction": "eval(cache.getFromMemory(lycnm).ruleContent.payAction||'')",
+    "replaceRegex": "##🎭(?:\\n|$)|\\(本章完\\)(?:$|<img)\n@js:eval(cache.getFromMemory(lycnm).ruleContent.replaceRegex.replace(/[\\s\\S]*@js\\:/,''))",
+    "title": "@js:\ngets(cache.getFromMemory(lycnm).ruleContent.title)"
+  },
+  "ruleExplore": {
+    "author": "@js:\ngets(cache.getFromMemory(lycnm).ruleExplore.author)",
+    "bookList": "@js:\nlet r=cache.getFromMemory(lycnm);\nif (Math.random()<0.2) {\nr=eval(java.readTxtFile(java.md5Encode16(lycurl)+'.json')+''||[''])[0];\nr&&cache.putMemory(lycnm,r);\n}\nif (!r) {\njava.downloadFile(lycurl);\nr=eval(java.readTxtFile(java.md5Encode16(lycurl)+'.json')+'')[0];\nr&&cache.putMemory(lycnm,r);}\neval(cache.getFromMemory(lycnm).ruleExplore.bookList.replace('@js:',''));",
+    "bookUrl": "@js:\ngets(cache.getFromMemory(lycnm).ruleExplore.bookUrl)",
+    "coverUrl": "@js:\ngets(cache.getFromMemory(lycnm).ruleExplore.coverUrl)",
+    "intro": "@js:\ngets(cache.getFromMemory(lycnm).ruleExplore.intro)",
+    "kind": "@js:\njava.getElement(cache.getFromMemory(lycnm).ruleExplore.kind)",
+    "lastChapter": "@js:\ngets(cache.getFromMemory(lycnm).ruleExplore.lastChapter)",
+    "name": "@js:\ngets(cache.getFromMemory(lycnm).ruleExplore.name)",
+    "wordCount": "@js:\ngets(cache.getFromMemory(lycnm).ruleExplore.wordCount)"
+  },
+  "ruleSearch": {
+    "author": "@js:\ngets(cache.getFromMemory(lycnm).ruleSearch.author)",
+    "bookList": "@js:\neval(cache.getFromMemory(lycnm).ruleSearch.bookList.replace('@js:',''))",
+    "bookUrl": "@js:\ngets(cache.getFromMemory(lycnm).ruleSearch.bookUrl)",
+    "coverUrl": "@js:\ngets(cache.getFromMemory(lycnm).ruleSearch.coverUrl)",
+    "intro": "@js:\ngets(cache.getFromMemory(lycnm).ruleSearch.intro)",
+    "kind": "@js:\njava.getElement(cache.getFromMemory(lycnm).ruleSearch.kind)",
+    "lastChapter": "@js:\ngets(cache.getFromMemory(lycnm).ruleSearch.lastChapter)",
+    "name": "@js:\ngets(cache.getFromMemory(lycnm).ruleSearch.name)",
+    "wordCount": "@js:\ngets(cache.getFromMemory(lycnm).ruleSearch.wordCount)"
+  },
+  "ruleToc": {
+    "chapterList": "@js:\neval(cache.getFromMemory(lycnm).ruleToc.chapterList.replace('@js:',''))",
+    "chapterName": "N",
+    "chapterUrl": "C",
+    "isVip": "V",
+    "isVolume": "Vo",
+    "preUpdateJs": "let r=cache.getFromMemory(lycnm);\nif (!r) {\nr=eval(java.readTxtFile(java.md5Encode16(lycurl)+'.json')+'')[0];cache.putMemory(lycnm,r);}\neval(r.ruleToc.preUpdateJs||'');",
+    "updateTime": "T"
+  },
+  "searchUrl": "@js:\nlet r=cache.getFromMemory(lycnm);\nif (Math.random()<0.3) {\nr=eval(java.readTxtFile(java.md5Encode16(lycurl)+'.json')+''||[''])[0];\nr&&cache.putMemory(lycnm,r);\n}\nif (!r) {\njava.downloadFile(lycurl);\nr=eval(java.readTxtFile(java.md5Encode16(lycurl)+'.json')+'')[0];\nr&&cache.putMemory(lycnm,r);}\neval(r.searchUrl.replace('@js:',''));",
+  "variableComment": "源变量：权限密码\n书籍变量：解锁使用网站的目录链接\n",
+  "weight": 0
+}]
