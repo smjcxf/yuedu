@@ -2,9 +2,9 @@ name: Backup Repositories
 
 on:
   schedule:
-    - cron: '0 */2 * * *'  
-  workflow_dispatch:
-  
+    - cron: '0 */2 * * *'  # 每2小时执行一次
+  workflow_dispatch:  # 允许手动触发
+
 jobs:
   backup:
     runs-on: ubuntu-latest
@@ -13,19 +13,25 @@ jobs:
       - name: Checkout Backup Repository
         uses: actions/checkout@v3
         with:
-          token: ${{ secrets.PAT }}
+          token: ${{ secrets.PAT }}  # 使用个人访问令牌 checkout
           
-- name: Clone Luoyacheng_legado
-  run: |
-    git clone --depth=1 --branch master https://github.com/Luoyacheng/legado Luoyacheng_legado
-    if [ -d "legado(Luoyacheng)" ]; then
-    rm -rf "legado(Luoyacheng)"
-    fi
-    mkdir -p "legado(Luoyacheng)"
-    mv Luoyacheng_legado/* "legado(Luoyacheng)/"
-    rm -rf Luoyacheng_legado
+      - name: Clone Luoyacheng_legado
+        run: |
+          # 克隆目标仓库到临时目录
+          git clone --depth=1 --branch master https://github.com/Luoyacheng/legado Luoyacheng_legado
+          
+          # 清理旧目录（如果存在）
+          if [ -d "legado(Luoyacheng)" ]; then
+            rm -rf "legado(Luoyacheng)"
+          fi
+          
+          # 创建目标目录并移动文件
+          mkdir -p "legado(Luoyacheng)"
+          mv Luoyacheng_legado/* "legado(Luoyacheng)/"
+          
+          # 删除空的临时目录
+          rm -rf Luoyacheng_legado
   
-          
       - name: Update timestamp
         run: echo "Backup run at $(date)" > backup-timestamp.txt
         
@@ -33,16 +39,23 @@ jobs:
         env:
           PAT: ${{ secrets.PAT }}
         run: |
+          # 配置Git身份
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # 添加所有更改
           git add .
+          
+          # 检查是否有变更，无变更则仅更新时间戳
           if git diff-index --quiet HEAD; then
-            echo "No changes detected, adding timestamp file."
+            echo "No changes detected, updating timestamp."
             echo "Backup run at $(date)" > backup-timestamp.txt
             git add backup-timestamp.txt
-            git commit -m "$(date +'%Y-%m-%d %H:%M:%S')"
+            git commit -m "Update timestamp: $(date +'%Y-%m-%d %H:%M:%S')"
           else
-            git commit -m "Automated backup $(date +'%Y-%m-%d %H:%M:%S')"
+            git commit -m "Automated backup: $(date +'%Y-%m-%d %H:%M:%S')"
           fi
+          
+          # 推送更改到仓库
           git remote set-url origin https://x-access-token:${PAT}@github.com/smjcxf/yuedu.git
           git push origin main
