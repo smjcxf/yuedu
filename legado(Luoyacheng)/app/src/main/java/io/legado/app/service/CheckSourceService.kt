@@ -156,11 +156,11 @@ class CheckSourceService : BaseService() {
 
     private suspend fun isDomainReachable(domain: String): Boolean {
         return kotlin.runCatching {
-            withTimeout(1600) {
-                val url = URI(domain)
+            withTimeout(2000) {
+                val url = URI(domain.substringBefore("#"))
                 val port = url.port.takeIf { it > 0 } ?: 80
                 Socket().use { socket ->
-                    socket.connect(InetSocketAddress(url.host, port), 1000)
+                    socket.connect(InetSocketAddress(url.host, port), 1600)
                     true
                 }
             }
@@ -173,7 +173,11 @@ class CheckSourceService : BaseService() {
         source.removeErrorComment()
         //检测源地址可访问性
         if (CheckSource.checkDomain) {
-            if (isDomainReachable(source.bookSourceUrl)) {
+            val domain = source.bookSourceUrl
+            if (!domain.startsWith("http", ignoreCase = true)) {
+                throw NoStackTraceException("源地址不是http链接")
+            }
+            else if (isDomainReachable(domain)) {
                 source.removeGroup("域名失效")
             } else {
                 source.addGroup("域名失效")
