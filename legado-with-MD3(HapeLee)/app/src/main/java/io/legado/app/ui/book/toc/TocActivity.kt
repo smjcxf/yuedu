@@ -20,6 +20,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.appcompat.widget.PopupMenu
 import androidx.appcompat.widget.SearchView
+import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentPagerAdapter
@@ -31,6 +32,7 @@ import io.legado.app.data.entities.Book
 import io.legado.app.data.entities.BookChapter
 import io.legado.app.databinding.ActivityChapterListBinding
 import io.legado.app.databinding.DialogDownloadChoiceBinding
+import io.legado.app.help.book.isLocal
 import io.legado.app.help.book.isLocalTxt
 import io.legado.app.help.config.AppConfig
 import io.legado.app.lib.dialogs.alert
@@ -43,6 +45,7 @@ import io.legado.app.ui.replace.ReplaceRuleActivity
 import io.legado.app.ui.replace.edit.ReplaceEditActivity
 import io.legado.app.ui.widget.dialog.WaitDialog
 import io.legado.app.utils.applyTint
+import io.legado.app.utils.dpToPx
 import io.legado.app.utils.gone
 import io.legado.app.utils.hideSoftInput
 import io.legado.app.utils.observeEvent
@@ -64,6 +67,7 @@ class TocActivity : VMBaseActivity<ActivityChapterListBinding, TocViewModel>(),
     private var menu: Menu? = null
     private var searchView: SearchView? = null
     private val waitDialog by lazy { WaitDialog(this) }
+    private var isLocalBook : Boolean = false
     private val exportDir = registerForActivityResult(HandleFileContract()) {
         it.uri?.let { uri ->
             when (it.requestCode) {
@@ -88,6 +92,7 @@ class TocActivity : VMBaseActivity<ActivityChapterListBinding, TocViewModel>(),
         viewModel.bookData.observe(this) { book ->
             menu?.setGroupVisible(R.id.menu_group_text, book.isLocalTxt)
             supportActionBar?.title = book.name
+            binding.topBar.menu.findItem(R.id.menu_download)?.isVisible = !book.isLocal
         }
         intent.getStringExtra("bookUrl")?.let {
             viewModel.initBook(it)
@@ -102,10 +107,23 @@ class TocActivity : VMBaseActivity<ActivityChapterListBinding, TocViewModel>(),
                 updateButtonVisibility(tab.position)
             }
             override fun onTabUnselected(tab: TabLayout.Tab) {}
+
             override fun onTabReselected(tab: TabLayout.Tab) {
-                updateButtonVisibility(tab.position)
+                if (tab.position == 0) {
+                    doReverseToc()
+                }
             }
         })
+    }
+
+    private fun doReverseToc() {
+        viewModel.reverseToc {
+            viewModel.chapterListCallBack?.upChapterList(searchView?.query?.toString())
+            setResult(RESULT_OK, Intent().apply {
+                putExtra("index", it.durChapterIndex)
+                putExtra("chapterPos", 0)
+            })
+        }
     }
 
     private fun updateButtonVisibility(tabPosition: Int) {
@@ -283,13 +301,7 @@ class TocActivity : VMBaseActivity<ActivityChapterListBinding, TocViewModel>(),
                 }
             }
 
-            R.id.menu_reverse_toc -> viewModel.reverseToc {
-                viewModel.chapterListCallBack?.upChapterList(searchView?.query?.toString())
-                setResult(RESULT_OK, Intent().apply {
-                    putExtra("index", it.durChapterIndex)
-                    putExtra("chapterPos", 0)
-                })
-            }
+            R.id.menu_reverse_toc -> doReverseToc()
 
             R.id.menu_use_replace -> {
                 AppConfig.tocUiUseReplace = !item.isChecked
