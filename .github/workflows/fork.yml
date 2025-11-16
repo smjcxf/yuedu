@@ -1,0 +1,62 @@
+name: 备份仓库
+
+on:
+  schedule:
+    - cron: '0 */2 * * *' # 每2小时执行一次
+  workflow_dispatch: # 允许手动触发
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 检出备份仓库
+        uses: actions/checkout@v3
+        with:
+          token: ${{ secrets.PAT }}
+
+      - name: 克隆并整理所有目标仓库
+        run: |
+          # 定义要同步的仓库列表
+          REPOS=(
+            "Luoyacheng/legado legado(Luoyacheng)"
+            "Luoyacheng/yuedu yuedu(Luoyacheng)"
+            "HapeLee/legado-with-MD3 legado-with-MD3(HapeLee)"
+          )
+
+          for ITEM in "${REPOS[@]}"; do
+            # 获取仓库地址、目标文件夹名
+            REPO_URL="https://github.com/$(echo $ITEM | awk '{print $1}')"
+            TARGET_DIR="$(echo $ITEM | awk '{print $2}')"
+            TEMP_DIR="$(echo $TARGET_DIR | sed 's/(.*)//g')_tmp"
+
+            # 克隆仓库到临时目录
+            git clone --depth=1 --branch main "$REPO_URL" "$TEMP_DIR"
+
+            # 清理旧目录，创建新目录，并移动文件
+            rm -rf "$TARGET_DIR"
+            mkdir -p "$TARGET_DIR"
+            mv "$TEMP_DIR"/* "$TARGET_DIR"/ 2>/dev/null || true
+            rm -rf "$TEMP_DIR"
+          done
+
+      - name: 更新备份时间戳
+        run: echo "备份执行于 $(date)" > backup-timestamp.txt
+
+      - name: 提交并推送更改
+        env:
+          PAT: ${{ secrets.PAT }}
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add .
+          if git diff-index --quiet HEAD; then
+            echo "无变更，仅更新时间戳。"
+            echo "备份执行于 $(date)" > backup-timestamp.txt
+            git add backup-timestamp.txt
+            git commit -m "更新时间戳: $(date +'%Y-%m-%d %H:%M:%S')"
+          else
+            git commit -m "自动备份: $(date +'%Y-%m-%d %H:%M:%S')"
+          fi
+          git remote set-url origin https://x-access-token:${PAT}@github.com/smjcxf/yuedu.git
+          git push origin main
