@@ -1,120 +1,117 @@
+# 备份指定仓库到本仓库的主分支，并生成时间戳。支持定时和手动触发，并可选通知失败到 Slack。
 name: Backup Repositories
 
-于:
+# 工作流触发条件：定时（每2小时）和手动触发（workflow_dispatch）
+on:
   schedule:
-    - cron: '0 */2 * * *'  # 每2小时执行一次（UTC时间，注意时区差异）
-  workflow_dispatch:  # 允许手动触发
+    - cron: '0 */2 * * *' # 每2小时执行一次（UTC时间，注意时区差异）
+  workflow_dispatch:
     inputs:
       backup_comment:
-        description: '手动备份备注'
+        description: '手动触发时的备份备注'
         required: false
-        默认: 'Manual backup trigger'
+        default: 'Manual backup trigger'
 
 jobs:
   backup:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15  # 防止任务无限运行
+    runs-on: ubuntu-latest             # 使用最新版 Ubuntu runner
+    timeout-minutes: 15                # 失败超时时间，防止异常卡死
     env:
-      # 集中配置备份源（新增 HapeLee/legado-with-MD3 仓库）
-      BACKUP_REPOS: |
+      BACKUP_REPOS: |                  # 集中配置需备份的仓库列表，格式：源仓库:目标目录名
         Luoyacheng/legado:legado(Luoyacheng)
         Luoyacheng/yuedu:yuedu(Luoyacheng)
-        HapeLee/legado-with-MD3:legado-with-MD3(HapeLee)  # 新增仓库：源仓库:目标目录名
-      TARGET_BRANCH: main  # 目标分支（统一配置）
+        HapeLee/legado-with-MD3:legado-with-MD3(HapeLee)
+      TARGET_BRANCH: main              # 备份提交目标分支
 
     steps:
-      - name: 检查运行环境
+      # 显示运行环境及备份时间，方便后续调试定位
+      - name: Check environment
         run: |
-          echo "运行环境：Ubuntu $(lsb_release -rs)"
-          echo "Git 版本：$(git --version)"
-          echo "备份时间：$(date +'%Y-%m-%d %H:%M:%S %Z')"
+          echo "Environment: Ubuntu $(lsb_release -rs)"
+          echo "Git version: $(git --version)"
+          echo "Backup time: $(date +'%Y-%m-%d %H:%M:%S %Z')"
 
-      - name: 检出备份仓库
-        uses: actions/checkout@v4  # 升级到最新稳定版
+      # 检出本仓库代码，用于保存备份文件
+      - name: Checkout repository
+        uses: actions/checkout@v4       # 推荐使用最新版 checkout action
         with:
           token: ${{ secrets.PAT }}
-          fetch-depth: 1  # 仅拉取最新提交，加快速度
+          fetch-depth: 1                # 仅拉取最近一次提交，加快速度
           ref: ${{ env.TARGET_BRANCH }}
 
-      - name: 安装依赖（可选，确保git正常工作）
-        run: sudo apt-get update && sudo apt-get install -y git-lfs  # 支持LFS仓库（如果需要）
+      # 安装 Git LFS（大文件支持），可选，部分仓库可能不需要
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y git-lfs
 
-      - name: 批量克隆并备份仓库
+      # 批量克隆需备份的仓库，并移动到指定目录。自动处理历史、隐藏文件等。
+      - name: Batch clone and backup repositories
         run: |
-          # 循环处理所有需要备份的仓库
+          set -e    # 出错立即中断
           while IFS=: read -r repo target_dir; do
-            echo "=== 开始备份仓库：$repo 到 $target_dir ==="
-            
-            # 临时目录（避免命名冲突）
-            temp_dir="temp_$(echo $repo | tr '/' '_')"
-            
-            # 清理旧目录（如果存在）
+            echo "=== Backing up repository: $repo to $target_dir ==="
+            temp_dir="temp_$(echo $repo | tr '/' '_')"   # 临时目录名
             if [ -d "$target_dir" ]; then
-              echo "清理旧备份目录：$target_dir"
+              echo "Cleaning old backup directory: $target_dir"
               rm -rf "$target_dir"
             fi
-            
-            # 克隆仓库（--depth=1 仅保留最新版本，减少体积）
-            echo "克隆仓库：https://github.com/$repo"
+
+            echo "Cloning repository: https://github.com/$repo"
             if ! git clone --depth=1 --branch main "https://github.com/$repo" "$temp_dir"; then
-              echo "❌ 克隆 $repo 失败，跳过该仓库"
-              continue  # 单个仓库失败不影响整体流程
+              echo "❌ Failed to clone $repo, skipping."
+              rm -rf "$temp_dir"
+              continue                         # 单个仓库失败不影响整体流程
             fi
-            
-            # 移动文件到目标目录
+
             mkdir -p "$target_dir"
-            mv "$temp_dir"/* "$target_dir"/ 2>/dev/null || true  # 忽略空目录警告
-            mv "$temp_dir"/.* "$target_dir"/ 2>/dev/null || true  # 移动隐藏文件（如.gitignore）
-            
-            # 清理临时目录
+            shopt -s dotglob nullglob          # 支持移除隐藏文件和空目录
+            mv "$temp_dir"/* "$target_dir"/
             rm -rf "$temp_dir"
-            echo "✅ $repo 备份完成"
+            echo "✅ $repo backup complete"
           done <<< "$BACKUP_REPOS"
 
-      - name: 更新备份时间戳
+      # 生成备份时间戳文件，写入触发方式、手动备注及备份仓库列表
+      - name: Update backup timestamp
         run: |
-          # 时间戳文件包含更详细的信息
           cat > backup-timestamp.txt <<EOF
-          最近备份时间：$(date +'%Y-%m-%d %H:%M:%S %Z')
-          触发方式：${{ github.event_name == 'workflow_dispatch' && '手动触发' || '定时触发' }}
-          ${{ github.event_name == 'workflow_dispatch' && format('手动备注：{0}', github.event.inputs.backup_comment) || '' }}
-          备份仓库列表：
+          Last backup time: $(date +'%Y-%m-%d %H:%M:%S %Z')
+          Trigger type: ${{ github.event_name == 'workflow_dispatch' && 'Manual' || 'Scheduled' }}
+          ${{ github.event_name == 'workflow_dispatch' && format('Manual comment: {0}', github.event.inputs.backup_comment) || '' }}
+          Repositories backed up:
           $(echo "$BACKUP_REPOS" | awk -F: '{print "- " $1 " -> " $2}')
           EOF
 
-      - name: 提交并推送更改
+      # 提交更改（含新备份和时间戳），推送到 main 分支
+      - name: Commit and push changes
         env:
           PAT: ${{ secrets.PAT }}
-          GITHUB_REPO: ${{ github.repository }}  # 自动获取当前仓库（无需硬编码）
+          GITHUB_REPO: ${{ github.repository }}
         run: |
-          # 配置Git身份
+          set -e
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          
-          # 检查是否有变更（包括时间戳文件）
+
           git add .
-          if ! git diff-index --quiet HEAD --; then
-            # 根据触发方式生成提交信息
+          if ! git diff-index --quiet HEAD --; then          # 有变更才提交
             if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
               commit_msg="Manual backup: $(date +'%Y-%m-%d %H:%M:%S') | ${{ github.event.inputs.backup_comment }}"
             else
               commit_msg="Automated backup: $(date +'%Y-%m-%d %H:%M:%S')"
             fi
-            
-            # 提交并推送
+
             git commit -m "$commit_msg"
             git remote set-url origin "https://x-access-token:${PAT}@github.com/${GITHUB_REPO}.git"
-            git push origin "$TARGET_BRANCH" --force-with-lease  # 安全推送（避免覆盖他人提交）
-            echo "✅ 更改已成功推送"
+            git push origin "$TARGET_BRANCH"
+            echo "✅ Changes pushed."
           else
-            echo "ℹ️  无任何变更，无需提交"
+            echo "ℹ️ No changes to commit."
           fi
 
-      - name: 备份失败通知（可选）
+      # 备份任务失败时，提供 Slack 通知支持（可选配置，需要设置 SLACK_WEBHOOK_URL）
+      - name: Failure notification (optional)
         if: failure()
         uses: 8398a7/action-slack@v3
         with:
           status: ${{ job.status }}
           fields: repo,message,commit,author,action,eventName,workflow,job,took
         env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}  # 需要在仓库 Secrets 中配置
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
