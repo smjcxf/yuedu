@@ -1,5 +1,5 @@
 # 备份指定仓库到本仓库的主分支，并生成时间戳。支持定时和手动触发，并可选通知失败到 Slack。
-name: Backup Repositories
+name: Backup
 
 # 工作流触发条件：定时（每2小时）和手动触发（workflow_dispatch）
 on:
