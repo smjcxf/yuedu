@@ -12,6 +12,7 @@ import io.legado.app.model.BookShelfState
 import io.legado.app.ui.book.search.BookKey
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
@@ -57,25 +58,16 @@ class ExploreShowViewModel(
     val kinds = _kinds.asStateFlow()
     private val _selectedKindTitle = MutableStateFlow<String?>(null)
     val selectedKindTitle = _selectedKindTitle.asStateFlow()
+    private val _layoutState = MutableStateFlow(AppConfig.exploreLayoutState) // 0=列表, 1=网格
+    val layoutState: StateFlow<Int> = _layoutState.asStateFlow()
+
     val uiBooks = combine(
         _rawBooks,
         _filterState,
         _bookshelf
     ) { books, filter, bookshelf ->
         books.filter { item ->
-            val state = getBookShelfState(item, bookshelf)
-            when (filter) {
-                BookFilterState.SHOW_ALL -> true
-
-                BookFilterState.HIDE_IN_SHELF ->
-                    state != BookShelfState.IN_SHELF
-
-                BookFilterState.HIDE_SAME_NAME_AUTHOR ->
-                    state != BookShelfState.SAME_NAME_AUTHOR
-
-                BookFilterState.SHOW_NOT_IN_SHELF_ONLY ->
-                    state == BookShelfState.NOT_IN_SHELF
-            }
+            isBookValid(item, filter, bookshelf)
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -123,6 +115,12 @@ class ExploreShowViewModel(
         AppConfig.exploreFilterState = state.id
     }
 
+    fun setLayout() {
+        val newState = if (_layoutState.value == 0) 1 else 0
+        _layoutState.value = newState
+        AppConfig.exploreLayoutState = newState
+    }
+
     fun loadMore(isRefresh: Boolean = false) {
         if (_isLoading.value || (isEnd && !isRefresh)) return
 
@@ -167,6 +165,16 @@ class ExploreShowViewModel(
 
     fun getCurrentBookShelfState(item: SearchBook): BookShelfState {
         return getBookShelfState(item, _bookshelf.value)
+    }
+
+    private fun isBookValid(book: SearchBook, filter: BookFilterState, shelf: Set<BookKey>): Boolean {
+        val state = getBookShelfState(book, shelf)
+        return when (filter) {
+            BookFilterState.SHOW_ALL -> true
+            BookFilterState.HIDE_IN_SHELF -> state != BookShelfState.IN_SHELF
+            BookFilterState.HIDE_SAME_NAME_AUTHOR -> state != BookShelfState.SAME_NAME_AUTHOR
+            BookFilterState.SHOW_NOT_IN_SHELF_ONLY -> state == BookShelfState.NOT_IN_SHELF
+        }
     }
 
     private fun getBookShelfState(item: SearchBook, shelf: Set<BookKey>): BookShelfState {
