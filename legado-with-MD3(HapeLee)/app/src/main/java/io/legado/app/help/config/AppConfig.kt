@@ -157,6 +157,12 @@ object AppConfig : SharedPreferences.OnSharedPreferenceChangeListener {
             appCtx.putPrefBoolean(PreferKey.showUnread, value)
         }
 
+    var showTip: Boolean
+        get() = appCtx.getPrefBoolean(PreferKey.showTip, false)
+        set(value) {
+            appCtx.putPrefBoolean(PreferKey.showTip, value)
+        }
+
     var showUnreadNew: Boolean
         get() = appCtx.getPrefBoolean(PreferKey.showUnreadNew, true)
         set(value) {
@@ -909,5 +915,10 @@ object AppConfig : SharedPreferences.OnSharedPreferenceChangeListener {
             appCtx.putPrefInt(PreferKey.exploreLayoutState, value)
         }
 
+    var defaultSourceChangeAll: Boolean
+        get() = appCtx.getPrefBoolean(PreferKey.defaultSourceChangeAll, true)
+        set(value) {
+            appCtx.putPrefBoolean(PreferKey.defaultSourceChangeAll, value)
+        }
 }
 
