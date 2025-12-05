@@ -52,7 +52,7 @@ class ExploreShowViewModel(
     private var bookSource: BookSource? = null
     private var exploreUrl: String? = null
     private var page = 1
-    private var isEnd = false
+    private val _isEndStateFlow = MutableStateFlow(false)
     private val _bookshelf = MutableStateFlow<Set<BookKey>>(emptySet())
     private val _kinds = MutableStateFlow<List<ExploreKind>>(emptyList())
     val kinds = _kinds.asStateFlow()
@@ -71,6 +71,21 @@ class ExploreShowViewModel(
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    val isRawDataEmptyAndEnd = combine(
+        _rawBooks,
+        _isEndStateFlow
+    ) { rawBooks, isEndValue ->
+        rawBooks.isEmpty() && isEndValue
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    val shouldTriggerAutoLoad = combine(
+        _isLoading,
+        uiBooks,
+        _rawBooks,
+        _isEndStateFlow
+    ) { loading, uiBooks, rawBooks, isEnd ->
+        !loading && uiBooks.isEmpty() && rawBooks.isNotEmpty() && !isEnd
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     val isLoading = _isLoading.asStateFlow()
     val errorMsg = _errorMsg.asStateFlow()
@@ -107,6 +122,7 @@ class ExploreShowViewModel(
     fun switchExploreUrl(kind: ExploreKind) {
         _selectedKindTitle.value = kind.title
         exploreUrl = kind.url
+        _isEndStateFlow.value = false
         loadMore(isRefresh = true)
     }
 
@@ -122,7 +138,7 @@ class ExploreShowViewModel(
     }
 
     fun loadMore(isRefresh: Boolean = false) {
-        if (_isLoading.value || (isEnd && !isRefresh)) return
+        if (_isLoading.value || (_isEndStateFlow.value && !isRefresh)) return
 
         viewModelScope.launch {
             _isLoading.value = true
@@ -139,20 +155,26 @@ class ExploreShowViewModel(
 
             if (isRefresh) {
                 page = 1
-                isEnd = false
+                _isEndStateFlow.value = false
                 _rawBooks.value = emptyList()
             }
 
             repository.exploreBook(source, url, page)
                 .onSuccess { newBooks ->
                     if (newBooks.isEmpty()) {
-                        isEnd = true
+                        _isEndStateFlow.value = true
                     } else {
                         repository.saveSearchBooks(newBooks)
                         val currentList = if (page == 1) emptyList() else _rawBooks.value
-                        val combined = (currentList + newBooks).distinctBy { it.bookUrl }
-                        _rawBooks.value = combined
+                        if (page == 1) {
+                            _rawBooks.value = newBooks.distinctBy { it.bookUrl }
+                        } else {
+                            val existingUrls = currentList.map { it.bookUrl }.toSet()
+                            val uniqueNewBooks = newBooks.filter { it.bookUrl !in existingUrls }
+                            _rawBooks.value = currentList + uniqueNewBooks
+                        }
                         page++
+                        _isEndStateFlow.value = false
                     }
                 }
                 .onFailure {
