@@ -622,7 +622,6 @@ class ReadBookActivity : BaseReadBookActivity(),
                 loadChapterList(it)
             }
             R.id.menu_enable_replace -> {
-                binding.readMenu.runMenuOut()
                 changeReplaceRuleState()
             }
             R.id.menu_re_segment -> ReadBook.book?.let {
@@ -972,6 +971,15 @@ class ReadBookActivity : BaseReadBookActivity(),
                 return true
             }
 
+            R.id.menu_edit -> {
+                val startPos = binding.readView.getSelectTextPos() + ReadBook.durChapterPos - 13
+                showDialogFragment<ContentEditDialog> {
+                    putInt("start_position", startPos)
+                    putString("selected_text", binding.readView.getSelectText())
+                }
+                return true
+            }
+
             R.id.menu_replace -> {
                 val scopes = arrayListOf<String>()
                 ReadBook.book?.name?.let {
@@ -1005,6 +1013,19 @@ class ReadBookActivity : BaseReadBookActivity(),
             }
         }
         return false
+    }
+
+    private fun onEditTextAction(selectedText: String, startPos: Int) {
+        val bundle = Bundle().apply {
+            putString("selected_text", selectedText)
+            putInt("start_position", startPos)
+        }
+
+        val dialog = ContentEditDialog().apply {
+            arguments = bundle
+        }
+
+        dialog.show(supportFragmentManager, "ContentEditDialog")
     }
 
     /**
@@ -1732,6 +1753,7 @@ class ReadBookActivity : BaseReadBookActivity(),
     }
 
     override fun changeReplaceRuleState() {
+        binding.readMenu.runMenuOut()
         ReadBook.book?.let {
             it.setUseReplaceRule(!it.getUseReplaceRule())
             ReadBook.saveRead()
