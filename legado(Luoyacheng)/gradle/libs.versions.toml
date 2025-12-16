@@ -2,7 +2,7 @@
 
 kotlin = "2.2.21"
 ksp = "2.3.2"
-agp = "8.13.1"
+agp = "8.13.2"
 appcompat = "1.7.1"
 colorpicker = "1.1.0"
 #不要更新，会导致安卓6进正文崩溃
@@ -20,7 +20,7 @@ hutool = "5.8.22"
 libarchive = "1.1.6"
 lifecycle = "2.9.4"
 lyricViewx = "1.3.2"
-soraEditor = "0.24.2"
+soraEditor = "0.24.3"
 glide = "5.0.5"
 gson = "2.13.2"
 jsonPath = "2.9.0"
@@ -50,7 +50,7 @@ desugar = "2.1.5"
 
 activity = "1.11.0"
 #kotlinxSerialization = "1.8.0"
-swiperefreshlayout = "1.1.0"
+swiperefreshlayout = "1.2.0"
 #noinspection GradleDependency
 recyclerview = "1.4.0"
 #noinspection GradleDependency
