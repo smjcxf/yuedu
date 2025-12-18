@@ -22,6 +22,8 @@ import android.view.MenuItem
 import android.view.View
 import android.widget.CheckBox
 import android.widget.LinearLayout
+import androidx.activity.OnBackPressedCallback
+import androidx.activity.addCallback
 import androidx.activity.viewModels
 import androidx.core.app.ActivityCompat
 import androidx.core.app.ActivityOptionsCompat
@@ -43,6 +45,7 @@ import io.legado.app.data.entities.Book
 import io.legado.app.data.entities.BookChapter
 import io.legado.app.data.entities.BookSource
 import io.legado.app.databinding.ActivityBookInfoBinding
+import io.legado.app.databinding.DialogEditTextBinding
 import io.legado.app.exception.NoStackTraceException
 import io.legado.app.help.AppWebDav
 import io.legado.app.help.book.addType
@@ -51,6 +54,7 @@ import io.legado.app.help.book.isAudio
 import io.legado.app.help.book.isImage
 import io.legado.app.help.book.isLocal
 import io.legado.app.help.book.isLocalTxt
+import io.legado.app.help.book.isNotShelf
 import io.legado.app.help.book.isWebFile
 import io.legado.app.help.book.removeType
 import io.legado.app.help.config.AppConfig
@@ -58,6 +62,7 @@ import io.legado.app.help.config.LocalConfig
 import io.legado.app.lib.dialogs.alert
 import io.legado.app.lib.dialogs.selector
 import io.legado.app.model.BookCover
+import io.legado.app.model.ReadBook
 import io.legado.app.model.remote.RemoteBookWebDav
 import io.legado.app.ui.about.AppLogDialog
 import io.legado.app.ui.book.audio.AudioPlayActivity
@@ -153,7 +158,7 @@ class BookInfoActivity :
             viewModel.refreshBook(book)
         }
     }
-
+    private lateinit var backCallback: OnBackPressedCallback
     private var surfaceFinalColor: Int = 0
     private var surfaceContainerFinalColor: Int = 0
     private var secondaryFinalColor: Int = 0
@@ -184,6 +189,7 @@ class BookInfoActivity :
         window.sharedElementReturnTransition = transform
         window.sharedElementsUseOverlay = false
         super.onCreate(savedInstanceState)
+        setupBackCallback()
         surfaceFinalColor =
             MaterialColors.getColor(this, com.google.android.material.R.attr.colorSurface, -1)
         secondaryFinalColor =
@@ -381,6 +387,27 @@ class BookInfoActivity :
 //        return super.dispatchTouchEvent(ev)
 //    }
 
+    private fun setupBackCallback() {
+        onBackPressedDispatcher.addCallback(this) {
+            if (!viewModel.inBookshelf) {
+                viewModel.getBook()?.let { book ->
+                    alert(title = getString(R.string.add_to_bookshelf)) {
+                        setMessage(getString(R.string.check_add_bookshelf, book.name))
+                        okButton {
+                            book.removeType(BookType.notShelf)
+                            book.save()
+                            viewModel.inBookshelf = true
+                            super.finishAfterTransition()
+                        }
+                        noButton { super.finishAfterTransition() }
+                    }
+                }
+            } else {
+                finishAfterTransition()
+            }
+        }
+    }
+
     private fun refreshBook() {
         upLoading(true)
         viewModel.getBook()?.let {
@@ -414,6 +441,11 @@ class BookInfoActivity :
         showCover(book)
         addColorScheme(binding.ivCover.drawable)
         tvName.text = book.name
+        tvRemark.text = book.remark
+        if (book.remark == null)
+            cdRemark.gone()
+        else
+            cdRemark.visible()
         tvAuthor.text = getString(R.string.author_show, book.getRealAuthor())
         tvOrigin.text = getString(R.string.origin_show, book.originName)
         tvLasted.text = getString(R.string.lasted_show, book.latestChapterTitle)
@@ -573,6 +605,7 @@ class BookInfoActivity :
                     val color = animation.animatedValue as Int
                     binding.lbKind.applyColorScheme(color, colorOnSurface)
                     binding.collTopBar.setContentScrimColor(color)
+                    binding.cdRemark.strokeColor = color
                 }
             }
 
@@ -592,6 +625,7 @@ class BookInfoActivity :
                 }
                 binding.div.setTextColor(color)
                 binding.tvChapterIndex.setTextColor(color)
+                binding.tvRemark.setTextColor(color)
             }
         }
 
@@ -818,7 +852,19 @@ class BookInfoActivity :
             tvName.maxLines = if (tvName.maxLines == 3) 10 else 3
             true
         }
-
+        cdRemark.setOnClickListener {
+            alert(R.string.edit_remark) {
+                val alertBinding = DialogEditTextBinding.inflate(layoutInflater).apply {
+                    editLayout.hint = "编辑备注"
+                    editView.setText(book?.remark)
+                }
+                customView { alertBinding.root }
+                okButton {
+                    viewModel.saveRemark(alertBinding.editView.text.toString())
+                }
+                cancelButton()
+            }
+        }
         refreshLayout.setOnRefreshListener {
             refreshLayout.isRefreshing = false
             refreshBook()
