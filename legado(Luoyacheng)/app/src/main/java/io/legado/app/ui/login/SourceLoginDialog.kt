@@ -57,7 +57,6 @@ import io.legado.app.ui.widget.text.TextInputLayout
 import io.legado.app.utils.isTrue
 import io.legado.app.utils.setSelectionSafely
 import kotlin.math.abs
-import kotlin.text.isNotEmpty
 
 
 class SourceLoginDialog : BaseDialogFragment(R.layout.dialog_login, true) {
@@ -386,7 +385,13 @@ class SourceLoginDialog : BaseDialogFragment(R.layout.dialog_login, true) {
                     adapter.setDropDownViewResource(R.layout.item_spinner_dropdown)
                     val selector = it.spType
                     selector.adapter = adapter
-                    val char = loginInfo[name]?.takeIf { c -> c.isNotEmpty() } ?: rowUi.default.toString()
+                    val infoV = loginInfo[name]
+                    val char = if (infoV.isNullOrEmpty()) {
+                        hasChange = true
+                        rowUi.default ?: items[0]
+                    } else {
+                        infoV
+                    }
                     loginInfo[name] = char
                     val i = items.indexOf(char)
                     selector.setSelectionSafely(i)
@@ -401,7 +406,7 @@ class SourceLoginDialog : BaseDialogFragment(R.layout.dialog_login, true) {
                             loginInfo[name] = items[position]
                             if (action != null) {
                                 execute {
-                                    evalUiJs(action)
+                                    handleButtonClick(source, action, name, rowUis, false)
                                 }.onError { e ->
                                     AppLog.put("LoginUI Select $name JavaScript error", e)
                                 }
@@ -499,7 +504,13 @@ class SourceLoginDialog : BaseDialogFragment(R.layout.dialog_login, true) {
                     }
                     it.root.id = index + 1000
                     val chars = rowUi.chars?.filterNotNull() ?: listOf("chars is null")
-                    var char = loginInfo[name]?.takeIf { c -> c.isNotEmpty() } ?: rowUi.default ?: chars.getOrNull(0) ?: "chars is []"
+                    val infoV = loginInfo[name]
+                    var char = if (infoV.isNullOrEmpty()) {
+                        hasChange = true
+                        rowUi.default ?: chars[0]
+                    } else {
+                        infoV
+                    }
                     loginInfo[name] = char
                     if (viewName == null) {
                         it.textView.text = if (left) char + name else name + char
