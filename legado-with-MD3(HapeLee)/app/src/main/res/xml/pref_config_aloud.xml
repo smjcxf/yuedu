@@ -67,6 +67,17 @@
             android:key="sysTtsConfig"
             app:iconSpaceReserved="false" />
 
-    </io.legado.app.lib.prefs.PreferenceCategory>
+        <io.legado.app.lib.prefs.Preference
+            android:key="audioPreDownloadNum"
+            android:summary="@string/read_aloud_preload_summary"
+            android:title="@string/read_aloud_preload"
+            app:iconSpaceReserved="false" />
+
+        <io.legado.app.lib.prefs.Preference
+            android:key="audioCacheCleanTime"
+            android:summary="@string/audio_cache_clean_time_summary"
+            android:title="@string/audio_cache_clean_time"
+            app:iconSpaceReserved="false" />
+        </io.legado.app.lib.prefs.PreferenceCategory>
 
 </androidx.preference.PreferenceScreen>

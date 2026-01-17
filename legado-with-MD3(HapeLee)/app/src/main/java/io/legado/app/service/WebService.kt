@@ -1,5 +1,6 @@
 package io.legado.app.service
 
+// ——————【新增引用】——————
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
@@ -21,6 +22,7 @@ import io.legado.app.utils.getPrefBoolean
 import io.legado.app.utils.getPrefInt
 import io.legado.app.utils.postEvent
 import io.legado.app.utils.printOnDebug
+import io.legado.app.utils.putPrefBoolean
 import io.legado.app.utils.sendToClip
 import io.legado.app.utils.servicePendingIntent
 import io.legado.app.utils.startForegroundServiceCompat
@@ -116,7 +118,12 @@ class WebService : BaseService() {
     @SuppressLint("WakelockTimeout")
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
-            IntentAction.stop -> stopSelf()
+            IntentAction.stop -> {
+                // ——————【修改开始】通知栏点击停止时，也记录关闭状态——————
+                appCtx.putPrefBoolean("web_service_auto", false)
+                stopSelf()
+                // ——————【修改结束】——————
+            }
             "copyHostAddress" -> sendToClip(hostAddress)
             "serve" -> if (useWakeLock) {
                 wakeLock.acquire()

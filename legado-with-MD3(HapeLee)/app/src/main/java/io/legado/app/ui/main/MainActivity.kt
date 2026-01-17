@@ -42,6 +42,7 @@ import io.legado.app.help.coroutine.Coroutine
 import io.legado.app.help.storage.Backup
 import io.legado.app.help.update.AppUpdateGitHub
 import io.legado.app.lib.dialogs.alert
+import io.legado.app.service.WebService
 import io.legado.app.ui.about.CrashLogsDialog
 import io.legado.app.ui.about.UpdateDialog
 import io.legado.app.ui.book.read.ReadBookActivity
@@ -134,6 +135,12 @@ open class MainActivity : VMBaseActivity<ActivityMainBinding, MainViewModel>(),
             binding.viewPagerMain.fitsSystemWindows = true
         // 其他初始化逻辑
         setupBackCallback()
+
+        // 智能自启：如果上次是手动开启状态（web_service_auto 为 true），则自启
+        if (AppConfig.webServiceAutoStart) {
+            WebService.startForeground(this)
+        }
+        
         upBottomMenu()
         initView()
         upHomePage()
@@ -596,5 +603,3 @@ class Launcher4 : MainActivity()
 class Launcher5 : MainActivity()
 class Launcher6 : MainActivity()
 class Launcher0 : MainActivity()
-
-

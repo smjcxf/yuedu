@@ -69,6 +69,7 @@ object PreferKey {
     const val webDavAccount = "web_dav_account"
     const val webDavPassword = "web_dav_password"
     const val webDavDir = "webDavDir"
+    const val webServiceAutoStart = "webServiceAutoStart"
     const val enableCustomExport = "enableCustomExport"
     const val exportToWebDav = "webDavCacheBackup"
     const val exportNoChapterName = "exportNoChapterName"
@@ -93,6 +94,8 @@ object PreferKey {
     const val defaultCoverDark = "defaultCoverDark"
     const val replaceEnableDefault = "replaceEnableDefault"
     const val showBrightnessView = "showBrightnessView"
+    const val useUnderline = "useUnderline"
+    const val adaptSpecialStyle = "adaptSpecialStyle"
     const val autoClearExpired = "autoClearExpired"
     const val autoChangeSource = "autoChangeSource"
     const val importKeepName = "importKeepName"
@@ -173,6 +176,8 @@ object PreferKey {
     const val cAccent = "colorAccent"
     const val customMode = "customMode"
     const val paletteStyle = "paletteStyle"
+    const val composeEngine = "composeEngine"
+    const val containerOpacity = "containerOpacity"
     const val enableBlur = "enableBlur"
     const val cBackground = "colorBackground"
     const val cBBackground = "colorBottomBackground"
@@ -243,4 +248,6 @@ object PreferKey {
 
     const val showTip = "showTip"
     const val sliderVibrator = "sliderVibrator"
+    const val audioCacheCleanTime = "audioCacheCleanTime"
+    const val audioPreDownloadNum = "audioPreDownloadNum"
 }
