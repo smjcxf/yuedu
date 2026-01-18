@@ -28,11 +28,11 @@ import io.legado.app.help.coroutine.Coroutine
 import io.legado.app.model.ImageProvider
 import io.legado.app.model.ReadBook
 import io.legado.app.ui.book.read.page.entities.TextChapter
-import io.legado.app.ui.book.read.page.entities.TextHtmlColumn
 import io.legado.app.ui.book.read.page.entities.TextLine
 import io.legado.app.ui.book.read.page.entities.TextPage
 import io.legado.app.ui.book.read.page.entities.column.ImageColumn
 import io.legado.app.ui.book.read.page.entities.column.TextColumn
+import io.legado.app.ui.book.read.page.entities.column.TextHtmlColumn
 import io.legado.app.ui.book.read.page.provider.ChapterProvider.reviewChar
 import io.legado.app.ui.book.read.page.provider.ChapterProvider.srcReplaceChar
 import io.legado.app.ui.book.read.page.provider.ChapterProvider.srcReplaceCharC
@@ -77,6 +77,8 @@ class TextChapterLayout(
 
     private val titleTopSpacing = ChapterProvider.titleTopSpacing
     private val titleBottomSpacing = ChapterProvider.titleBottomSpacing
+    private val titleLineSpacingExtra = ChapterProvider.titleLineSpacingExtra
+    private val titleLineSpacingSub = ChapterProvider.titleLineSpacingSub
     private val lineSpacingExtra = ChapterProvider.lineSpacingExtra
     private val paragraphSpacing = ChapterProvider.paragraphSpacing
 
@@ -95,7 +97,10 @@ class TextChapterLayout(
     private val textFullJustify = ReadBookConfig.textFullJustify
     private val adaptSpecialStyle = AppConfig.adaptSpecialStyle
     private val pageAnim = book.getPageAnim()
-
+    private val titleSegType = ReadBookConfig.titleSegType
+    private val titleSegDistance = ReadBookConfig.titleSegDistance
+    private val titleSegFlag = ReadBookConfig.titleSegFlag
+    private val titleSegScaling = ReadBookConfig.titleSegScaling
     private var pendingTextPage = TextPage()
 
     private val bookChapter inline get() = textChapter.chapter
@@ -221,37 +226,69 @@ class TextChapterLayout(
         val isTextImageStyle = imageStyle.equals(Book.imgStyleText, true)
 
         if (titleMode != 2 || bookChapter.isVolume || contents.isEmpty()) {
-            //标题非隐藏
-            displayTitle.splitNotBlank("\n").forEach { text ->
+            val allTitleSegments = displayTitle.splitNotBlank("\n").flatMap { rawTitle ->
+                TitleStyleParser.getSegments(
+                    rawTitle,
+                    titleSegType,
+                    titleSegDistance,
+                    titleSegFlag,
+                    titleSegScaling
+                )
+            }
+
+            allTitleSegments.forEachIndexed { index, segment ->
+                val currentPaint: TextPaint
+                val currentHeight: Float
+                val currentMetrics: Paint.FontMetrics
+                val lineIndexBefore = pendingTextPage.lines.size
+                if (segment.isMainTitle) {
+                    currentPaint = titlePaint
+                    currentHeight = titlePaintTextHeight
+                    currentMetrics = titlePaintFontMetrics
+                } else {
+                    currentPaint = TextPaint(titlePaint).apply {
+                        textSize = titlePaint.textSize * segment.scale
+                    }
+                    currentMetrics = currentPaint.fontMetrics
+                    currentHeight = currentMetrics.bottom - currentMetrics.top
+                }
+
                 val srcList = LinkedList<String>()
                 val reviewImg = bookChapter.reviewImg
                 var reviewTxt = ""
-                if (!reviewImg.isNullOrEmpty()) {
+                if (index == allTitleSegments.lastIndex && reviewImg != null) {
                     srcList.add(reviewImg)
-                    reviewTxt = if (reviewImg.contains("TEXT")) {
-                        reviewChar
-                    } else {
-                        srcReplaceChar
-                    }
+                    reviewTxt = if (reviewImg.contains("TEXT")) reviewChar else srcReplaceChar
                 }
+
                 setTypeText(
-                    book,
-                    text + reviewTxt,
-                    titlePaint,
-                    titlePaintTextHeight,
-                    titlePaintFontMetrics,
-                    imageStyle,
+                    book = book,
+                    text = segment.text + reviewTxt,
+                    textPaint = currentPaint,
+                    textHeight = currentHeight,
+                    fontMetrics = currentMetrics,
+                    imageStyle = imageStyle,
                     srcList = srcList.ifEmpty { null },
                     isTitle = true,
                     emptyContent = contents.isEmpty(),
                     isVolumeTitle = bookChapter.isVolume
                 )
+
+                if (segment.scale != 1.0f) {
+                    val currentLines = pendingTextPage.lines
+                    for (i in lineIndexBefore until currentLines.size) {
+                        currentLines[i].titleTextSize = currentPaint.textSize
+                    }
+                }
+
                 pendingTextPage.lines.last().isParagraphEnd = true
                 stringBuilder.append("\n")
+
+                if (index < allTitleSegments.lastIndex) {
+                    durY += currentHeight * titleLineSpacingSub
+                }
             }
             durY += titleBottomSpacing
-
-            // 如果是单图模式且当前页有内容，强制分页
             if (isSingleImageStyle && pendingTextPage.lines.isNotEmpty() && contents.isNotEmpty()) {
                 prepareNextPageIfNeed()
             }
@@ -849,7 +886,7 @@ class TextChapterLayout(
             textLine.upTopBottom(durY, textHeight, fontMetrics)
             val textPage = pendingTextPage
             textPage.addLine(textLine)
-            durY += textHeight * lineSpacingExtra
+            durY += textHeight * if (isTitle) titleLineSpacingExtra else lineSpacingExtra
             if (textPage.height < durY) {
                 textPage.height = durY
             }
