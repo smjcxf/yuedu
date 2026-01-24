@@ -2,7 +2,6 @@ package io.legado.app.ui.widget.dialog
 
 import android.annotation.SuppressLint
 import android.content.Context
-import android.content.DialogInterface
 import android.content.pm.ActivityInfo
 import android.graphics.Bitmap
 import android.net.Uri
@@ -57,6 +56,8 @@ import io.legado.app.utils.viewbindingdelegate.viewBinding
 import io.legado.app.utils.visible
 import kotlinx.coroutines.launch
 import androidx.core.view.size
+import io.legado.app.utils.get
+import java.lang.ref.WeakReference
 
 class BottomWebViewDialog() : BottomSheetDialogFragment(R.layout.dialog_web_view) {
 
@@ -77,18 +78,20 @@ class BottomWebViewDialog() : BottomSheetDialogFragment(R.layout.dialog_web_view
     }
 
     private val binding by viewBinding(DialogWebViewBinding::bind)
-    private val behavior by lazy {
+    private val bottomSheet by lazy {
         dialog?.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)
-            ?.let { sheet ->
-                BottomSheetBehavior.from(sheet)
-            }
+    }
+    private val behavior by lazy {
+        bottomSheet?.let { sheet ->
+            BottomSheetBehavior.from(sheet)
+        }
     }
     private lateinit var pooledWebView: PooledWebView
     private lateinit var currentWebView: WebView
     private var source: BaseSource? = null
-    private var successInit = false
     private var isFullScreen = false
     private var customWebViewCallback: WebChromeClient.CustomViewCallback? = null
+    private var originOrientation: Int? = null
     private var needClearHistory = true
 
     override fun onAttach(context: Context) {
@@ -100,6 +103,11 @@ class BottomWebViewDialog() : BottomSheetDialogFragment(R.layout.dialog_web_view
     override fun onStart() {
         super.onStart()
         setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+        bottomSheet?.let { sheet ->
+            val layoutParams = sheet.layoutParams
+            layoutParams.height = ViewGroup.LayoutParams.MATCH_PARENT
+            sheet.layoutParams = layoutParams
+        }
     }
 
     override fun show(manager: FragmentManager, tag: String?) {
@@ -133,7 +141,7 @@ class BottomWebViewDialog() : BottomSheetDialogFragment(R.layout.dialog_web_view
                         "<head><script>(() => {$JS_INJECTION\n$preloadJs\n})();</script>"
                     )
                 } else {
-                    "<head><script>(() => {$JS_INJECTION\n$preloadJs\n})();</script></head>$html" //$basicJs
+                    "<head><script>(() => {$JS_INJECTION\n$preloadJs\n})();</script></head>$html"
                 }
             }
             appDb.bookSourceDao.getBookSource(sourceKey).let {
@@ -146,8 +154,13 @@ class BottomWebViewDialog() : BottomSheetDialogFragment(R.layout.dialog_web_view
             }
             val bookType = args.getInt("bookType", 0)
             val analyzeUrl = AnalyzeUrl(url, source = source, coroutineContext = coroutineContext)
-            initWebView(analyzeUrl.url, html, analyzeUrl.headerMap, bookType)
+            currentWebView.resumeTimers()
+            currentWebView.onResume() //缓存库拿的需要激活
+            currentWebView.setOnScrollChangeListener { _, _, scrollY, _, _ ->
+                behavior?.isDraggable = scrollY == 0
+            }
             currentWebView.post {
+                initWebView(analyzeUrl.url, html, analyzeUrl.headerMap, bookType)
                 currentWebView.clearHistory()
             }
         }
@@ -161,6 +174,8 @@ class BottomWebViewDialog() : BottomSheetDialogFragment(R.layout.dialog_web_view
                     currentWebView.goBack()
                     return@setOnKeyListener true
                 }
+                dismiss()
+                return@setOnKeyListener true
             }
             false
         }
@@ -173,15 +188,9 @@ class BottomWebViewDialog() : BottomSheetDialogFragment(R.layout.dialog_web_view
         bookType: Int
     ) {
         currentWebView.webChromeClient = CustomWebChromeClient()
-        currentWebView.addJavascriptInterface(JSInterface(), nameBasic)
+        currentWebView.addJavascriptInterface(JSInterface(this), nameBasic)
         currentWebView.webViewClient = CustomWebViewClient()
-        currentWebView.settings.apply {
-            useWideViewPort = true
-            loadWithOverviewMode = true
-            headerMap[AppConst.UA_NAME]?.let {
-                userAgentString = it
-            }
-        }
+        currentWebView.settings.userAgentString = headerMap.get(AppConst.UA_NAME, true)
         source?.let { source ->
             (activity as? AppCompatActivity)?.let { currentActivity ->
                 val webJsExtensions = WebJsExtensions(source, currentActivity, currentWebView, bookType)
@@ -193,19 +202,23 @@ class BottomWebViewDialog() : BottomSheetDialogFragment(R.layout.dialog_web_view
         currentWebView.loadDataWithBaseURL(url, html, "text/html", "utf-8", url)
     }
 
-    override fun onDismiss(dialog: DialogInterface) {
-        super.onDismiss(dialog)
-        if (successInit) {
-            WebViewPool.release(pooledWebView)
+    override fun onDestroyView() {
+        customWebViewCallback?.onCustomViewHidden()
+        WebViewPool.release(pooledWebView)
+        originOrientation?.let {
+            activity?.requestedOrientation = it
         }
+        super.onDestroyView()
     }
 
     @Suppress("unused")
-    private inner class JSInterface() {
+    private class JSInterface(dialog: BottomWebViewDialog) {
+        private val dialogRef: WeakReference<BottomWebViewDialog> = WeakReference(dialog)
         @JavascriptInterface
         fun lockOrientation(orientation: String) {
-            val ctx = activity
-            if (isFullScreen && ctx != null && !ctx.isFinishing && !ctx.isDestroyed) {
+            val fra = dialogRef.get() ?: return
+            val ctx = fra.requireActivity()
+            if (fra.isFullScreen && fra.dialog?.isShowing == true) {
                 ctx.runOnUiThread {
                     ctx.requestedOrientation = when (orientation) {
                         "portrait", "portrait-primary" -> ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
@@ -221,10 +234,10 @@ class BottomWebViewDialog() : BottomSheetDialogFragment(R.layout.dialog_web_view
 
         @JavascriptInterface
         fun onCloseRequested() {
-            val dia = dialog
-            if (dia != null && dia.isShowing) {
-                requireActivity().runOnUiThread {
-                    dismiss()
+            val fra = dialogRef.get() ?: return
+            if (fra.dialog?.isShowing == true) {
+                fra.requireActivity().runOnUiThread {
+                    fra.dismiss()
                 }
             }
         }
@@ -234,20 +247,25 @@ class BottomWebViewDialog() : BottomSheetDialogFragment(R.layout.dialog_web_view
 
         override fun onShowCustomView(view: View?, callback: CustomViewCallback?) {
             isFullScreen = true
-            binding.bottomSheet.invisible()
+            binding.webViewContainer.invisible()
             binding.customWebView.addView(view)
             customWebViewCallback = callback
             dialog?.toggleSystemBar(false)
             dialog?.keepScreenOn(true)
+            behavior?.state = BottomSheetBehavior.STATE_EXPANDED
+            originOrientation = activity?.requestedOrientation
         }
 
         override fun onHideCustomView() {
             isFullScreen = false
+            binding.webViewContainer.visible()
             binding.customWebView.removeAllViews()
-            binding.bottomSheet.visible()
+            customWebViewCallback = null
             dialog?.toggleSystemBar(true)
             dialog?.keepScreenOn(false)
-            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+            originOrientation?.let {
+                activity?.requestedOrientation = it
+            }
         }
 
         /* 覆盖window.close() */
