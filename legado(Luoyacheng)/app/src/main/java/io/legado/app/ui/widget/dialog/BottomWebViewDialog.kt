@@ -143,8 +143,9 @@ class BottomWebViewDialog() : BottomSheetDialogFragment(R.layout.dialog_web_view
     @Suppress("DEPRECATION")
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
         val dialog = super.onCreateDialog(savedInstanceState)
-        activity?.window?.decorView?.systemUiVisibility?.also {
-            dialog.window?.decorView?.systemUiVisibility = it
+        dialog.window?.let { window ->
+            window.decorView.systemUiVisibility = activity?.window?.decorView?.systemUiVisibility ?: 0
+            window.addFlags(WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS)
         }
         return dialog
     }
@@ -203,7 +204,7 @@ class BottomWebViewDialog() : BottomSheetDialogFragment(R.layout.dialog_web_view
                         }
                     sheet.background = shapeDrawable
                     sheet.clipToOutline = true
-                    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+                    if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.S_V2) {
                         currentWebView.outlineProvider =
                             object : android.view.ViewOutlineProvider() {
                                 override fun getOutline(
@@ -229,7 +230,7 @@ class BottomWebViewDialog() : BottomSheetDialogFragment(R.layout.dialog_web_view
                     sheet.backgroundTintList = null
                     sheet.background = null
                     sheet.clipToOutline = false
-                    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+                    if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.S_V2) {
                         currentWebView.outlineProvider = null
                         currentWebView.clipToOutline = false
                         binding.customWebView.outlineProvider = null
@@ -440,10 +441,10 @@ class BottomWebViewDialog() : BottomSheetDialogFragment(R.layout.dialog_web_view
                             val insertPos = closingHeadIndex + 1
                             StringBuilder(html).insert(insertPos, JS_URL).toString()
                         } else {
-                            html
+                            JS_URL + html
                         }
                     } else {
-                        html
+                        JS_URL + html
                     }
                 }
                 appDb.bookSourceDao.getBookSource(sourceKey).let {
@@ -804,20 +805,18 @@ class BottomWebViewDialog() : BottomSheetDialogFragment(R.layout.dialog_web_view
                     if (url.startsWith("data:text/html;") || request.method == "POST") {
                         return super.shouldInterceptRequest(view, request)
                     }
-                    return runBlocking {
+                    return runBlocking(IO) {
                         getModifiedContentWithJs(url, request) ?: super.shouldInterceptRequest(view, request)
                     }
                 }
-            } else if (!jsInjected) {
-                if (url == nameUrl) {
-                    jsInjected = true
-                    val preloadJs = preloadJs ?: ""
-                    return WebResourceResponse(
-                        "application/javascript",
-                        "utf-8",
-                        ByteArrayInputStream("(() => {$JS_INJECTION\n$preloadJs\n})();".toByteArray())
-                    )
-                }
+            } else if (!jsInjected && url == nameUrl) {
+                jsInjected = true
+                val preloadJs = preloadJs ?: ""
+                return WebResourceResponse(
+                    "text/javascript",
+                    "utf-8",
+                    ByteArrayInputStream("(() => {$JS_INJECTION\n$preloadJs\n})();".toByteArray())
+                )
             }
             return super.shouldInterceptRequest(view, request)
         }
