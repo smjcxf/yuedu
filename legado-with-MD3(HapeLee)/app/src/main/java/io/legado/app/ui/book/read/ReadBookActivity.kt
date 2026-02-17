@@ -100,7 +100,7 @@ import io.legado.app.ui.book.searchContent.SearchContentActivity
 import io.legado.app.ui.book.searchContent.SearchResult
 import io.legado.app.ui.book.source.edit.BookSourceEditActivity
 import io.legado.app.ui.book.toc.TocActivityResult
-import io.legado.app.ui.book.toc.rule.TxtTocRuleDialog
+import io.legado.app.ui.book.toc.rule.TxtTocRuleActivity
 import io.legado.app.ui.browser.WebViewActivity
 import io.legado.app.ui.dict.DictDialog
 import io.legado.app.ui.login.SourceLoginActivity
@@ -164,7 +164,6 @@ class ReadBookActivity : BaseReadBookActivity(),
     ReadBook.CallBack,
     AutoReadDialog.CallBack,
     ToolButtonConfigDialog.CallBack,
-    TxtTocRuleDialog.CallBack,
     ColorPickerDialogListener,
     FontConfigDialog.CallBack,
     FontSelectDialog.CallBack,
@@ -188,6 +187,18 @@ class ReadBookActivity : BaseReadBookActivity(),
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
             if (it.resultCode == RESULT_OK) {
                 viewModel.replaceRuleChanged()
+            }
+        }
+
+    private val txtTocRuleLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode == RESULT_OK) {
+                result.data?.getStringExtra("tocRegex")?.let { rule ->
+                    ReadBook.book?.let {
+                        it.tocUrl = rule
+                        loadChapterList(it)
+                    }
+                }
             }
         }
 
@@ -670,9 +681,11 @@ class ReadBookActivity : BaseReadBookActivity(),
             }
 
             R.id.menu_log -> showDialogFragment<AppLogDialog>()
-            R.id.menu_toc_regex -> showDialogFragment(
-                TxtTocRuleDialog(ReadBook.book?.tocUrl)
-            )
+            R.id.menu_toc_regex -> {
+                val intent = Intent(this, TxtTocRuleActivity::class.java)
+                intent.putExtra("tocRegex", ReadBook.book?.tocUrl)
+                txtTocRuleLauncher.launch(intent)
+            }
 
             R.id.menu_reverse_content -> ReadBook.book?.let {
                 viewModel.reverseContent(it)
@@ -780,6 +793,21 @@ class ReadBookActivity : BaseReadBookActivity(),
                 return true
             }
         }
+        // 手柄摇杆控制翻页
+        if (0 != (event.source and InputDevice.SOURCE_CLASS_JOYSTICK)) {
+            if (event.action == MotionEvent.ACTION_MOVE) {
+                // 左摇杆上下移动控制翻页
+                val yAxis = event.getAxisValue(MotionEvent.AXIS_Y)
+                if (Math.abs(yAxis) > 0.5f) { // 死区设置
+                    if (yAxis > 0) { // 摇杆向下
+                        handleKeyPage(PageDirection.NEXT, false)
+                    } else { // 摇杆向上
+                        handleKeyPage(PageDirection.PREV, false)
+                    }
+                    return true
+                }
+            }
+        }
         return super.onGenericMotionEvent(event)
     }
 
@@ -822,6 +850,16 @@ class ReadBookActivity : BaseReadBookActivity(),
             }
 
             KeyEvent.KEYCODE_SPACE -> {
+                handleKeyPage(PageDirection.NEXT, longPress)
+                return true
+            }
+             // 手柄方向键控制翻页
+            KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_LEFT -> {
+                handleKeyPage(PageDirection.PREV, longPress)
+                return true
+            }
+
+            KeyEvent.KEYCODE_DPAD_DOWN, KeyEvent.KEYCODE_DPAD_RIGHT -> {
                 handleKeyPage(PageDirection.NEXT, longPress)
                 return true
             }
@@ -1698,13 +1736,6 @@ class ReadBookActivity : BaseReadBookActivity(),
      * colorSelectDialog
      */
     override fun onDialogDismissed(dialogId: Int) = Unit
-
-    override fun onTocRegexDialogResult(tocRegex: String) {
-        ReadBook.book?.let {
-            it.tocUrl = tocRegex
-            loadChapterList(it)
-        }
-    }
 
     private fun sureSyncProgress(progress: BookProgress) {
         alert(R.string.get_book_progress) {
