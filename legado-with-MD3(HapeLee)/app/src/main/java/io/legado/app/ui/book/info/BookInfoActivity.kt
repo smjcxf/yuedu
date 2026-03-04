@@ -284,6 +284,10 @@ class BookInfoActivity :
                 refreshBook()
             }
 
+            R.id.menu_sync_remote -> {
+                viewModel.syncFromRemote()
+            }
+
             R.id.menu_login -> viewModel.bookSource?.let {
                 startActivity<SourceLoginActivity> {
                     putExtra("type", "bookSource")
@@ -660,7 +664,7 @@ class BookInfoActivity :
             duration = 400L
             addUpdateListener { animation ->
                 val color = animation.animatedValue as Int
-                binding.btnRead.setBackgroundColor(color)
+                binding.btnRead.backgroundTintList = ColorStateList.valueOf(color)
             }
         }
 
