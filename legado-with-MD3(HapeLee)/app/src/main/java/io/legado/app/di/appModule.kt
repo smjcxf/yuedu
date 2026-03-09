@@ -12,16 +12,19 @@ import io.legado.app.data.repository.UploadRepository
 import io.legado.app.ui.book.bookmark.AllBookmarkViewModel
 import io.legado.app.ui.book.explore.ExploreShowViewModel
 import io.legado.app.ui.book.import.remote.RemoteBookViewModel
+import io.legado.app.ui.book.info.BookInfoViewModel
 import io.legado.app.ui.book.readRecord.ReadRecordViewModel
 import io.legado.app.ui.book.searchContent.SearchContentViewModel
 import io.legado.app.ui.book.toc.TocViewModel
 import io.legado.app.ui.book.toc.rule.TxtTocRuleViewModel
 import io.legado.app.ui.config.otherConfig.OtherConfigViewModel
+import io.legado.app.ui.config.readConfig.ReadConfigViewModel
 import io.legado.app.ui.dict.rule.DictRuleViewModel
 import io.legado.app.ui.main.my.MyViewModel
 import io.legado.app.ui.replace.ReplaceEditRoute
 import io.legado.app.ui.replace.ReplaceRuleViewModel
 import io.legado.app.ui.replace.edit.ReplaceEditViewModel
+import io.legado.app.ui.rss.source.manage.RssSourceViewModel
 import org.koin.core.module.dsl.singleOf
 import org.koin.core.module.dsl.viewModel
 import org.koin.core.module.dsl.viewModelOf
@@ -42,6 +45,7 @@ val appModule = module {
     single<ExploreRepository> { ExploreRepositoryImpl(get()) }
 
     viewModelOf(::DictRuleViewModel)
+    viewModelOf(::RssSourceViewModel)
     viewModelOf(::ReadRecordViewModel)
     viewModelOf(::ExploreShowViewModel)
     viewModelOf(::MyViewModel)
@@ -49,8 +53,10 @@ val appModule = module {
     viewModelOf(::AllBookmarkViewModel)
     viewModelOf(::TxtTocRuleViewModel)
     viewModelOf(::OtherConfigViewModel)
+    viewModelOf(::ReadConfigViewModel)
     viewModelOf(::TocViewModel)
     viewModelOf(::RemoteBookViewModel)
+    viewModelOf(::BookInfoViewModel)
 
     viewModel { (route: ReplaceEditRoute) ->
         ReplaceEditViewModel(
