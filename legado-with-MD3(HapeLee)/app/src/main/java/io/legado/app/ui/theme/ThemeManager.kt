@@ -45,6 +45,7 @@ object ThemeManager {
         darkTheme: Boolean,
         isAmoled: Boolean,
         paletteStyle: String?,
+        materialVersion: String? = null,
         forceOpaque: Boolean = false
     ): ColorScheme {
 
@@ -65,7 +66,7 @@ object ThemeManager {
             }
 
             AppThemeMode.CUSTOM -> {
-                CustomColorScheme(context, context.primaryColor, style)
+                CustomColorScheme(context.primaryColor, style)
                     .getColorScheme(darkTheme)
             }
 

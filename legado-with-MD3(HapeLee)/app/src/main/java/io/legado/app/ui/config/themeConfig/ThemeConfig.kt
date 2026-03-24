@@ -17,6 +17,8 @@ object ThemeConfig {
 
     var paletteStyle by prefDelegate(PreferKey.paletteStyle, "tonalSpot")
 
+    var materialVersion by prefDelegate(PreferKey.materialVersion, "material3")
+
     var appTheme by prefDelegate(PreferKey.appTheme, "0")
 
     var themeMode by prefDelegate(PreferKey.themeMode, "0")
@@ -44,6 +46,10 @@ object ThemeConfig {
     }
 
     var cPrimary by prefDelegate(PreferKey.cPrimary, 0) {
+        postEvent(EventBus.RECREATE, "")
+    }
+
+    var customContrast by prefDelegate(PreferKey.customContrast, "Default") {
         postEvent(EventBus.RECREATE, "")
     }
 

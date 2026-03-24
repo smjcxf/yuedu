@@ -26,6 +26,24 @@
     <string name="tip_cannot_jump_setting_page">Cannot jump to Settings.</string>
 
     <string name="manual_input">Manual Input</string>
+    <string name="preferred_contrast">Preferred contrast</string>
+    <string name="contrast_source_system_summary">Source: System contrast</string>
+    <string name="contrast_source_manual_summary">Source: Manual input</string>
+    <string name="current_effective_contrast">Current effective value: %1$s</string>
+    <string name="system_contrast_value">System contrast: %1$s</string>
+    <string name="system_contrast">System contrast</string>
+    <string name="manual_contrast_value_label">Manual value [-1, 1]</string>
+    <string name="manual_contrast_invalid">Enter a valid number between -1 and 1</string>
+    <string name="predictive_back">Predictive Back Gestures</string>
+    <string name="predictive_back_summary">Enable system predictive back gestures</string>
+    <string name="restart_to_apply">Restart to apply</string>
+    <string name="custom_theme">Custom Theme</string>
+    <string name="click_to_select">Click to select</string>
+    <string name="compose_related">Compose Related</string>
+    <string name="use_flexible_top_bar">Use flexible top app bar</string>
+    <string name="slider">Slider</string>
+    <string name="input">Input</string>
+    <string name="manual_contrast_value_template">Manual value: %1$s</string>
     <string name="enter_directory_path">Enter directory path</string>
     <string name="invalid_directory">Invalid directory path</string>
     <string name="empty_directory_input">Directory path cannot be empty</string>
@@ -1375,6 +1393,7 @@
     <string name="read_color">颜色样式</string>
     <string name="reverse_volume_key_page">反转音量键翻页方向</string>
     <string name="palette_style">调色板样式</string>
+    <string name="material_version">颜色规格</string>
     <string name="tip_compose_set">这里的选项仅可以控制使用Compose重写的界面。对于禁用的选项，会在日后实现时开放，现在仅作占位。</string>
     <string name="is_blur_enable">启用控件模糊</string>
     <string name="use_underline">总是使用下划线表示强调文本</string>
