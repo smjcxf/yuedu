@@ -18,6 +18,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.Typography
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -28,8 +29,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import io.legado.app.ui.theme.LegadoTheme
+import io.legado.app.ui.theme.LocalLegadoThemeColors
+import io.legado.app.ui.theme.ProvideAppContentColor
 import io.legado.app.ui.theme.ThemeResolver
-import io.legado.app.ui.theme.rememberOpaqueColorScheme
+import io.legado.app.ui.widget.components.menuItem.LocalUseMiuixWindowPopup
 import top.yukonga.miuix.kmp.window.WindowBottomSheet
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
@@ -41,32 +44,58 @@ fun AppModalBottomSheet(
     title: String? = null,
     startAction: @Composable (() -> Unit)? = null,
     endAction: @Composable (() -> Unit)? = null,
-    containerColor: Color = LegadoTheme.colorScheme.surfaceContainer,
     content: @Composable ColumnScope.() -> Unit
 ) {
+    val colorScheme = LocalLegadoThemeColors.current.colorScheme
+    val sheetContainerColor = LegadoTheme.colorScheme.surfaceContainer
+    val sheetContentColor = LegadoTheme.colorScheme.onSurface
+    val sheetDragHandleColor = LegadoTheme.colorScheme.onSurfaceVariant
+
     if (ThemeResolver.isMiuixEngine(LegadoTheme.composeEngine)) {
         WindowBottomSheet(
             show = show,
             modifier = modifier,
             title = title,
-            startAction = startAction,
-            endAction = endAction,
+            startAction = startAction?.let { action ->
+                {
+                    ProvideAppContentColor(sheetContentColor) {
+                        CompositionLocalProvider(LocalUseMiuixWindowPopup provides true) {
+                            action()
+                        }
+                    }
+                }
+            },
+            endAction = endAction?.let { action ->
+                {
+                    ProvideAppContentColor(sheetContentColor) {
+                        CompositionLocalProvider(LocalUseMiuixWindowPopup provides true) {
+                            action()
+                        }
+                    }
+                }
+            },
             insideMargin = DpSize(16.dp, 12.dp),
-            backgroundColor = containerColor,
+            backgroundColor = sheetContainerColor,
+            dragHandleColor = sheetDragHandleColor,
             onDismissRequest = onDismissRequest,
             onDismissFinished = onDismissRequest,
             enableWindowDim = true,
             allowDismiss = true
         ) {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                content = content
-            )
+            ProvideAppContentColor(sheetContentColor) {
+                CompositionLocalProvider(LocalUseMiuixWindowPopup provides true) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .animateContentSize(),
+                        content = content
+                    )
+                }
+            }
         }
     } else {
         if (show) {
             val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-            val colorScheme = rememberOpaqueColorScheme()
             val density = LocalDensity.current
             val maxHeight = with(density) {
                 LocalWindowInfo.current.containerSize.height.toDp() * 0.8f
@@ -75,9 +104,9 @@ fun AppModalBottomSheet(
             ModalBottomSheet(
                 onDismissRequest = onDismissRequest,
                 sheetState = sheetState,
-                containerColor = containerColor,
-                contentColor = colorScheme.onSurface,
-                dragHandle = { BottomSheetDefaults.DragHandle() }
+                containerColor = sheetContainerColor,
+                contentColor = sheetContentColor,
+                dragHandle = { BottomSheetDefaults.DragHandle(color = sheetDragHandleColor) }
             ) {
                 MaterialExpressiveTheme(
                     colorScheme = colorScheme,
@@ -113,7 +142,7 @@ fun AppModalBottomSheet(
                                     Text(
                                         text = title,
                                         style = LegadoTheme.typography.titleMediumEmphasized,
-                                        color = colorScheme.onSurface,
+                                        color = sheetContentColor,
                                         textAlign = TextAlign.Center,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis,

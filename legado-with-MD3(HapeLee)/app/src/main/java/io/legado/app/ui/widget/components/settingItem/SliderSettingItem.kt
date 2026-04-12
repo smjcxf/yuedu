@@ -1,16 +1,13 @@
-package io.legado.app.ui.widget.components.settingItem
+﻿package io.legado.app.ui.widget.components.settingItem
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.rememberTextFieldState
@@ -29,11 +26,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import io.legado.app.R
 import io.legado.app.ui.theme.LegadoTheme.composeEngine
 import io.legado.app.ui.theme.ThemeResolver
-import io.legado.app.ui.widget.components.button.SmallTextButton
+import io.legado.app.ui.widget.components.button.ConfirmDismissButtonsRow
 import io.legado.app.ui.widget.components.text.AppText
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.Slider as MiuixSlider
@@ -78,7 +77,11 @@ fun SliderSettingItem(
                             MiuixTextField(
                                 state = textFieldState,
                                 lineLimits = TextFieldLineLimits.SingleLine,
-                                label = "输入数值 (${valueRange.start.toInt()}-${valueRange.endInclusive.toInt()})",
+                                label = stringResource(
+                                    R.string.input_value_range,
+                                    valueRange.start.toInt(),
+                                    valueRange.endInclusive.toInt()
+                                ),
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 modifier = Modifier.fillMaxWidth(),
                                 inputTransformation = {
@@ -113,35 +116,26 @@ fun SliderSettingItem(
                         }
                     }
 
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 16.dp),
-                        horizontalArrangement = Arrangement.End
-                    ) {
-                        SmallTextButton(
-                            text = if (isInputMode) "滑块" else "输入",
-                            icon = if (isInputMode) Icons.Default.LinearScale else Icons.Default.Edit,
-                            onClick = { isInputMode = !isInputMode }
-                        )
-
-                        Spacer(Modifier.width(8.dp))
-
-                        SmallTextButton(
-                            text = "默认",
-                            icon = Icons.Default.RestartAlt,
-                            onClick = {
-                                onValueChange(defaultValue)
-                                textFieldState.edit {
-                                    replace(
-                                        0,
-                                        length,
-                                        defaultValue.toInt().toString()
-                                    )
-                                }
+                    ConfirmDismissButtonsRow(
+                        modifier = Modifier.padding(top = 16.dp),
+                        onDismiss = { isInputMode = !isInputMode },
+                        onConfirm = {
+                            onValueChange(defaultValue)
+                            textFieldState.edit {
+                                replace(
+                                    0,
+                                    length,
+                                    defaultValue.toInt().toString()
+                                )
                             }
-                        )
-                    }
+                        },
+                        dismissText = if (isInputMode) {
+                            stringResource(R.string.slider)
+                        } else {
+                            stringResource(R.string.edit)
+                        },
+                        confirmText = stringResource(R.string.text_default)
+                    )
                 }
             }
         }
@@ -163,7 +157,15 @@ fun SliderSettingItem(
                             TextField(
                                 state = textFieldState,
                                 lineLimits = TextFieldLineLimits.SingleLine,
-                                label = { AppText("输入数值 (${valueRange.start.toInt()}-${valueRange.endInclusive.toInt()})") },
+                                label = {
+                                    AppText(
+                                        stringResource(
+                                            R.string.input_value_range,
+                                            valueRange.start.toInt(),
+                                            valueRange.endInclusive.toInt()
+                                        )
+                                    )
+                                },
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -207,34 +209,28 @@ fun SliderSettingItem(
                     }
                 }
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
-                ) {
-                    SmallTextButton(
-                        text = if (isInputMode) "滑块" else "输入",
-                        icon = if (isInputMode) Icons.Default.LinearScale else Icons.Default.Edit,
-                        onClick = { isInputMode = !isInputMode }
-                    )
-
-                    Spacer(Modifier.width(8.dp))
-
-                    SmallTextButton(
-                        text = "默认",
-                        icon = Icons.Default.RestartAlt,
-                        onClick = {
-                            onValueChange(defaultValue)
-                            textFieldState.edit {
-                                replace(
-                                    0,
-                                    length,
-                                    defaultValue.toInt().toString()
-                                )
-                            }
+                ConfirmDismissButtonsRow(
+                    modifier = Modifier.padding(top = 16.dp),
+                    onDismiss = { isInputMode = !isInputMode },
+                    onConfirm = {
+                        onValueChange(defaultValue)
+                        textFieldState.edit {
+                            replace(
+                                0,
+                                length,
+                                defaultValue.toInt().toString()
+                            )
                         }
-                    )
-                }
+                    },
+                    dismissText = if (isInputMode) {
+                        stringResource(R.string.slider)
+                    } else {
+                        stringResource(R.string.edit)
+                    },
+                    confirmText = stringResource(R.string.text_default)
+                )
             }
         )
     }
 }
+

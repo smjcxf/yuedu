@@ -26,6 +26,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import io.legado.app.ui.theme.LegadoTheme
@@ -41,7 +42,8 @@ import top.yukonga.miuix.kmp.basic.Text as MiuixText
 @Composable
 fun MediumIconButton(
     onClick: () -> Unit,
-    icon: ImageVector,
+    imageVector: ImageVector,
+    tint: Color = LegadoTheme.colorScheme.onSurface,
     modifier: Modifier = Modifier,
     contentDescription: String? = null
 ) {
@@ -51,8 +53,9 @@ fun MediumIconButton(
             modifier = modifier
         ) {
             MiuixIcon(
-                imageVector = icon,
-                contentDescription = contentDescription
+                imageVector = imageVector,
+                contentDescription = contentDescription,
+                tint = tint
             )
         }
     } else {
@@ -61,8 +64,9 @@ fun MediumIconButton(
             modifier = modifier
         ) {
             Icon(
-                imageVector = icon,
-                contentDescription = contentDescription
+                imageVector = imageVector,
+                contentDescription = contentDescription,
+                tint = tint
             )
         }
     }
@@ -71,7 +75,7 @@ fun MediumIconButton(
 @Composable
 fun MediumOutlinedIconButton(
     onClick: () -> Unit,
-    icon: ImageVector,
+    imageVector: ImageVector,
     modifier: Modifier = Modifier,
     contentDescription: String? = null
 ) {
@@ -83,7 +87,7 @@ fun MediumOutlinedIconButton(
             backgroundColor = LegadoTheme.colorScheme.surfaceContainerHigh
         ) {
             MiuixIcon(
-                imageVector = icon,
+                imageVector = imageVector,
                 contentDescription = contentDescription
             )
         }
@@ -93,7 +97,7 @@ fun MediumOutlinedIconButton(
             border = ButtonDefaults.outlinedButtonBorder()
         ) {
             Icon(
-                imageVector = icon,
+                imageVector = imageVector,
                 contentDescription = contentDescription
             )
         }
@@ -103,7 +107,7 @@ fun MediumOutlinedIconButton(
 @Composable
 fun MediumOutlinedButton(
     onClick: () -> Unit,
-    icon: ImageVector,
+    imageVector: ImageVector,
     text: String,
     modifier: Modifier = Modifier,
     contentDescription: String? = null
@@ -120,7 +124,7 @@ fun MediumOutlinedButton(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 MiuixIcon(
-                    imageVector = icon,
+                    imageVector = imageVector,
                     contentDescription = contentDescription
                 )
                 MiuixText(text = text)
@@ -136,7 +140,7 @@ fun MediumOutlinedButton(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Icon(
-                    imageVector = icon,
+                    imageVector = imageVector,
                     contentDescription = contentDescription
                 )
                 Text(text = text)
@@ -148,7 +152,7 @@ fun MediumOutlinedButton(
 @Composable
 fun MediumTonalIconButton(
     onClick: () -> Unit,
-    icon: ImageVector,
+    imageVector: ImageVector,
     modifier: Modifier = Modifier,
     contentDescription: String? = null
 ) {
@@ -161,7 +165,7 @@ fun MediumTonalIconButton(
             backgroundColor = LegadoTheme.colorScheme.surfaceContainer
         ) {
             MiuixIcon(
-                imageVector = icon,
+                imageVector = imageVector,
                 contentDescription = contentDescription
             )
         }
@@ -172,7 +176,7 @@ fun MediumTonalIconButton(
             colors = IconButtonDefaults.filledTonalIconButtonColors()
         ) {
             Icon(
-                imageVector = icon,
+                imageVector = imageVector,
                 contentDescription = contentDescription
             )
         }
@@ -183,7 +187,7 @@ fun MediumTonalIconButton(
 fun MediumOutlinedIconToggleButton(
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
-    icon: ImageVector,
+    imageVector: ImageVector,
     modifier: Modifier = Modifier,
     contentDescription: String? = null
 ) {
@@ -208,7 +212,7 @@ fun MediumOutlinedIconToggleButton(
             backgroundColor = containerColor
         ) {
             MiuixIcon(
-                imageVector = icon,
+                imageVector = imageVector,
                 contentDescription = contentDescription,
                 tint = iconTint
             )
@@ -220,7 +224,7 @@ fun MediumOutlinedIconToggleButton(
             modifier = modifier
         ) {
             Icon(
-                imageVector = icon,
+                imageVector = imageVector,
                 contentDescription = contentDescription
             )
         }
