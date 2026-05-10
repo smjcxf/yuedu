@@ -53,6 +53,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.legado.app.R
 import io.legado.app.data.entities.BookSourcePart
+import io.legado.app.help.source.getExploreInfoMap
 import io.legado.app.ui.widget.components.explore.ExploreKindUiUseCase
 import io.legado.app.ui.book.search.SearchActivity
 import io.legado.app.ui.book.search.SearchScope
@@ -104,10 +105,12 @@ fun ExploreScreen(
         viewModel.effects.collect { effect ->
             when (effect) {
                 is ExploreEffect.ExecuteKindAction -> {
+                    val infoMap = getExploreInfoMap(effect.sourceUrl)
                     exploreKindUseCase.executeAction(
                         action = effect.kind.action,
                         title = effect.kind.title,
                         sourceUrl = effect.sourceUrl,
+                        infoMap = infoMap,
                         activity = activity,
                         onRefreshKinds = { viewModel.refreshExploreKinds(effect.sourceUrl) }
                     )
@@ -201,13 +204,7 @@ fun ExploreScreen(
             ) {
                 items(
                     items = uiState.listItems,
-                    key = { it.key },
-                    contentType = {
-                        when (it) {
-                            is ExploreListItem.Header -> "source-header"
-                            is ExploreListItem.KindRow -> "kind-row"
-                        }
-                    }
+                    key = { it.key }
                 ) { listItem ->
                     when (listItem) {
                         is ExploreListItem.Header -> {

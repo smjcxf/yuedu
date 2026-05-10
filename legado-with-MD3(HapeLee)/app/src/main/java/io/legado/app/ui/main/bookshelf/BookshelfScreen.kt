@@ -703,6 +703,7 @@ fun BookshelfScreen(
                                     titleSmallFont = BookshelfConfig.bookshelfTitleSmallFont,
                                     titleCenter = BookshelfConfig.bookshelfTitleCenter,
                                     titleMaxLines = BookshelfConfig.bookshelfTitleMaxLines,
+                                    coverShadow = BookshelfConfig.bookshelfCoverShadow,
                                     onClick = {
                                         scope.launch { pagerState.scrollToPage(index) }
                                         viewModel.setInFolderRoot(false)
@@ -967,8 +968,11 @@ private fun BookshelfOverlays(
         onDismissRequest = { viewModel.dismissOverlay() }
     )
 
+    val groups by viewModel.allGroupsFlow.collectAsStateWithLifecycle()
+
     GroupSelectSheet(
         show = activeOverlay == BookshelfOverlay.GroupSelectSheet,
+        groups = groups,
         currentGroupId = 0L,
         onDismissRequest = { viewModel.dismissOverlay() },
         onConfirm = { groupId ->
