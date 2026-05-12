@@ -68,6 +68,8 @@ import androidx.compose.ui.zIndex
 import cn.hutool.core.date.DateUtil
 import io.legado.app.data.entities.readRecord.ReadRecord
 import io.legado.app.data.entities.readRecord.ReadRecordDetail
+import io.legado.app.data.entities.readRecord.ReadRecordSession
+import io.legado.app.ui.book.readRecord.component.*
 import io.legado.app.ui.theme.LegadoTheme
 import io.legado.app.ui.theme.adaptiveContentPaddingOnlyVertical
 import io.legado.app.ui.theme.adaptiveHorizontalPadding
@@ -81,7 +83,7 @@ import io.legado.app.ui.widget.components.topbar.TopBarNavigationButton
 import io.legado.app.ui.widget.components.card.GlassCard
 import io.legado.app.ui.widget.components.card.TextCard
 import io.legado.app.ui.widget.components.checkBox.CheckboxItem
-import io.legado.app.ui.widget.components.cover.Cover
+import io.legado.app.ui.widget.components.cover.CoilBookCover
 import io.legado.app.ui.widget.components.heatmap.HEATMAP_CALENDAR_TITLE
 import io.legado.app.ui.widget.components.heatmap.HeatmapCalendarEndAction
 import io.legado.app.ui.widget.components.heatmap.HeatmapCalendarStartAction
@@ -110,12 +112,18 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Date
 
+data class TimelineItem(
+    val session: ReadRecordSession,
+    val showHeader: Boolean
+)
+
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun ReadRecordScreen(
     viewModel: ReadRecordViewModel = koinViewModel(),
     onBackClick: () -> Unit,
-    onBookClick: (String, String) -> Unit
+    onBookClick: (String, String) -> Unit,
+    onSummaryClick: () -> Unit
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -283,7 +291,7 @@ fun ReadRecordScreen(
                             )
                         ) {
                             item(key = "summary_card") {
-                                SummarySection(state, viewModel)
+                                SummarySection(state, viewModel, onSummaryClick)
                             }
                             renderListByMode(
                                 displayMode = displayMode,
@@ -446,7 +454,8 @@ fun ReadRecordScreen(
 @Composable
 fun SummarySection(
     state: ReadRecordUiState,
-    viewModel: ReadRecordViewModel
+    viewModel: ReadRecordViewModel,
+    onSummaryClick: () -> Unit
 ) {
     val selectedDate = state.selectedDate
 
@@ -464,7 +473,7 @@ fun SummarySection(
                 totalTimeMillis = dailyTime,
                 bookNamesForCover = distinctBooks.take(3),
                 viewModel = viewModel,
-                onClick = { }
+                onClick = onSummaryClick
             )
         }
     } else {
@@ -478,7 +487,7 @@ fun SummarySection(
                 totalTimeMillis = totalTime,
                 bookNamesForCover = state.latestRecords.take(5).map { it.bookName to it.bookAuthor },
                 viewModel = viewModel,
-                onClick = {  }
+                onClick = onSummaryClick
             )
         }
     }
@@ -719,7 +728,12 @@ fun LatestReadItem(
             .adaptiveHorizontalPadding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Cover(coverPath)
+        CoilBookCover(
+            name = record.bookName,
+            author = record.bookAuthor,
+            path = coverPath,
+            modifier = Modifier.width(44.dp)
+        )
 
         Spacer(modifier = Modifier.width(16.dp))
 
@@ -830,7 +844,12 @@ fun TimelineSessionItem(
             Row(
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Cover(coverPath)
+                CoilBookCover(
+                    name = session.bookName,
+                    author = session.bookAuthor,
+                    path = coverPath,
+                    modifier = Modifier.width(44.dp)
+                )
                 Spacer(modifier = Modifier.width(8.dp))
                 Column {
                     AppText(
@@ -880,7 +899,12 @@ fun ReadRecordItem(
             .adaptiveHorizontalPadding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Cover(coverPath)
+        CoilBookCover(
+            name = detail.bookName,
+            author = detail.bookAuthor,
+            path = coverPath,
+            modifier = Modifier.width(44.dp)
+        )
 
         Spacer(modifier = Modifier.width(16.dp))
 
@@ -1008,24 +1032,25 @@ fun ReadingSummaryCard(
             }
 
             if (bookNamesForCover.isNotEmpty()) {
-                BookStackView(coverPaths = coverPaths)
+                val combined = bookNamesForCover.zip(coverPaths)
+                BookStackView(books = combined)
             }
         }
     }
 }
 
 @Composable
-fun BookStackView(coverPaths: List<String?>) {
+fun BookStackView(books: List<Pair<Pair<String, String>, String?>>) {
     val xOffsetStep = 12.dp
-    val stackWidth = 48.dp + (xOffsetStep * (coverPaths.size - 1).coerceAtLeast(0))
+    val stackWidth = 44.dp + (xOffsetStep * (books.size - 1).coerceAtLeast(0))
 
     Box(
         modifier = Modifier
             .width(stackWidth)
-            .height(72.dp),
+            .height(64.dp),
         contentAlignment = Alignment.CenterStart
     ) {
-        coverPaths.forEachIndexed { index, path ->
+        books.forEachIndexed { index, (info, path) ->
             Box(
                 modifier = Modifier
                     .padding(start = xOffsetStep * index)
@@ -1037,7 +1062,12 @@ fun BookStackView(coverPaths: List<String?>) {
                     shape = RoundedCornerShape(4.dp),
                     color = Color.Transparent
                 ) {
-                    Cover(path = path)
+                    CoilBookCover(
+                        name = info.first,
+                        author = info.second,
+                        path = path,
+                        modifier = Modifier.width(44.dp)
+                    )
                 }
             }
         }

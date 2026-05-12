@@ -210,11 +210,6 @@ object PreferKey {
     const val secondaryTextColor = "colorMD3OnPrimaryContainer"
     const val themeBackgroundColor = "colorMD3Background"
     const val labelContainerColor = "colorMD3SurfaceContainerLow"
-    const val enableContainerBorder = "enableContainerBorder"
-    const val containerBorderWidth = "containerBorderWidth"
-    const val containerBorderStyle = "containerBorderStyle"
-    const val containerBorderColor = "containerBorderColor"
-    const val containerBorderDashWidth = "containerBorderDashWidth"
     // 中间单线间隔设置
     const val enableItemDivider = "enableItemDivider"
     const val itemDividerWidth = "itemDividerWidth"
@@ -257,6 +252,7 @@ object PreferKey {
     const val ignoreBatteryPermission = "ignoreBatteryPermission"
     const val paddingDisplayCutouts = "paddingDisplayCutouts"
     const val autoCheckNewBackup = "autoCheckNewBackup"
+    const val backupSyncMode = "backupSyncMode"
     const val delayBookLoadEnable = "delayBookLoadEnable"
     const val sharedElementEnterTransitionEnable = "sharedElementEnterTransitionEnable"
     const val bookshelfLayoutGridLandscape = "bookshelfLayoutGridLandscape"
@@ -269,6 +265,8 @@ object PreferKey {
     const val bookshelfCoverShadow = "bookshelfCoverShadow"
     const val bookshelfSearchActionDirectToSearch = "bookshelfSearchActionDirectToSearch"
     const val bookshelfCardColor = "bookshelfCardColor"
+    const val bookshelfGroupListStyle = "bookshelfGroupListStyle"
+    const val bookshelfGroupCoverCount = "bookshelfGroupCoverCount"
 
     const val exploreLayoutGridLandscape = "exploreLayoutGridLandscape"
 
@@ -301,6 +299,8 @@ object PreferKey {
     const val showTip = "showTip"
     const val showBookCount = "showBookCount"
     const val showBookIntro = "showBookIntro"
+    const val bookshelfShowIntro = "bookshelfShowIntro"
+    const val bookshelfShowTag = "bookshelfShowTag"
     const val bookshelfIntroMaxLines = "bookshelfIntroMaxLines"
     const val sliderVibrator = "sliderVibrator"
     const val selectVibrator = "selectVibrator"

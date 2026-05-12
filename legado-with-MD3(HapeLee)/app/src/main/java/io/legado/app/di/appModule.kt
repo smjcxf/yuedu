@@ -48,6 +48,7 @@ import io.legado.app.domain.usecase.GetReadingProgressUseCase
 import io.legado.app.domain.usecase.RemoveBookGroupAssignmentUseCase
 import io.legado.app.ui.widget.components.explore.ExploreKindUiUseCase
 import io.legado.app.domain.usecase.ResolveBookShelfStateUseCase
+import io.legado.app.domain.usecase.readRecord.GetReadRecordOverviewUseCase
 import io.legado.app.domain.usecase.SearchBooksUseCase
 import io.legado.app.domain.usecase.ShrinkDatabaseUseCase
 import io.legado.app.domain.usecase.UpdateBooksGroupUseCase
@@ -73,6 +74,7 @@ import io.legado.app.ui.book.info.BookInfoViewModel
 import io.legado.app.ui.book.manga.ReadMangaViewModel
 import io.legado.app.ui.book.read.ReadBookViewModel
 import io.legado.app.ui.book.readRecord.ReadRecordViewModel
+import io.legado.app.ui.book.readRecord.ReadRecordOverviewViewModel
 import io.legado.app.ui.book.search.SearchViewModel
 import io.legado.app.ui.book.searchContent.SearchContentViewModel
 import io.legado.app.ui.book.toc.TocViewModel
@@ -80,6 +82,7 @@ import io.legado.app.ui.book.toc.rule.TxtTocRuleViewModel
 import io.legado.app.ui.config.backupConfig.BackupConfigViewModel
 import io.legado.app.ui.config.bookshelfConfig.BookshelfManageScreenConfig
 import io.legado.app.ui.config.coverConfig.CoverConfigViewModel
+import io.legado.app.ui.config.downloadCacheConfig.DownloadCacheConfigViewModel
 import io.legado.app.ui.config.otherConfig.OtherConfigViewModel
 import io.legado.app.ui.config.readConfig.ReadConfigViewModel
 import io.legado.app.ui.config.themeConfig.ThemeConfigViewModel
@@ -128,6 +131,7 @@ val appModule = module {
     singleOf(::UpdateBooksGroupUseCase)
     singleOf(::UploadReadingProgressUseCase)
     singleOf(::ResolveBookShelfStateUseCase)
+    factory { GetReadRecordOverviewUseCase() }
     singleOf(::ShrinkDatabaseUseCase)
     singleOf(::WebDavBackupUseCase)
     singleOf(::BookshelfManageScreenConfig)
@@ -174,6 +178,7 @@ val appModule = module {
     viewModelOf(::RssArticlesViewModel)
     viewModelOf(::ReadRssViewModel)
     viewModelOf(::ReadRecordViewModel)
+    viewModelOf(::ReadRecordOverviewViewModel)
     viewModelOf(::ExploreShowViewModel)
     viewModelOf(::MyViewModel)
     viewModelOf(::BookshelfViewModel)
@@ -185,6 +190,7 @@ val appModule = module {
     viewModelOf(::OtherConfigViewModel)
     viewModelOf(::ReadConfigViewModel)
     viewModelOf(::CoverConfigViewModel)
+    viewModelOf(::DownloadCacheConfigViewModel)
     viewModelOf(::ThemeConfigViewModel)
     viewModelOf(::BackupConfigViewModel)
     viewModelOf(::TocViewModel)
