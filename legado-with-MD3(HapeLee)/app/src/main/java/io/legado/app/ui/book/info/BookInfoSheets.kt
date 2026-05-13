@@ -34,7 +34,6 @@ import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -71,6 +70,7 @@ import io.legado.app.ui.book.changesource.ChangeBookSourceComposeViewModel
 import io.legado.app.ui.book.changesource.ChangeSourceConfig
 import io.legado.app.ui.book.changesource.ChangeSourceMigrationOptionsSheet
 import io.legado.app.ui.book.group.GroupEditSheet
+import io.legado.app.ui.book.search.ScopeSelectSheet
 import io.legado.app.ui.book.source.edit.BookSourceEditActivity
 import io.legado.app.ui.book.source.manage.BookSourceActivity
 import io.legado.app.ui.theme.LegadoTheme
@@ -78,7 +78,6 @@ import io.legado.app.ui.widget.components.AppLinearProgressIndicator
 import io.legado.app.ui.widget.components.AppTextField
 import io.legado.app.ui.widget.components.EmptyMessage
 import io.legado.app.ui.widget.components.alert.AppAlertDialog
-import io.legado.app.ui.widget.components.button.ConfirmDismissButtonsRow
 import io.legado.app.ui.widget.components.button.MediumIconButton
 import io.legado.app.ui.widget.components.button.SmallIconButton
 import io.legado.app.ui.widget.components.card.GlassCard
@@ -143,7 +142,18 @@ fun GroupSelectSheet(
         show = show,
         onDismissRequest = onDismissRequest,
         title = stringResource(R.string.group_select),
-        endAction = { IconButton(onClick = { editingGroup = BookGroup() }) { Icon(Icons.Default.Add, null) } }
+        startAction = {
+            MediumIconButton(
+                onClick = { editingGroup = BookGroup() },
+                imageVector = Icons.Default.Add
+            )
+        },
+        endAction = {
+            MediumIconButton(
+                onClick = { onConfirm(selectedGroupId) },
+                imageVector = Icons.Default.Check
+            )
+        }
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             LazyColumn(
@@ -184,13 +194,6 @@ fun GroupSelectSheet(
                     )
                 }
             }
-            Spacer(modifier = Modifier.height(12.dp))
-            ConfirmDismissButtonsRow(
-                onDismiss = onDismissRequest,
-                onConfirm = { onConfirm(selectedGroupId) },
-                dismissText = stringResource(R.string.cancel),
-                confirmText = stringResource(R.string.ok),
-            )
             Spacer(modifier = Modifier.height(12.dp))
         }
     }
@@ -295,7 +298,6 @@ fun ChangeSourceSheet(
     var loadingAction by remember { mutableStateOf(false) }
     var showOptionsMenu by rememberSaveable { mutableStateOf(false) }
     var showFilterSheet by rememberSaveable { mutableStateOf(false) }
-    var scopeSheetTab by rememberSaveable { mutableIntStateOf(0) }
     val bookAddedToShelfText = stringResource(R.string.book_added_to_shelf)
 
     val editSourceResult = rememberLauncherForActivityResult(StartActivityContract(BookSourceEditActivity::class.java)) {
@@ -600,93 +602,22 @@ fun ChangeSourceSheet(
         }
     )
 
-    AppModalBottomSheet(
+    ScopeSelectSheet(
         show = showFilterSheet,
         onDismissRequest = { showFilterSheet = false },
-        title = stringResource(R.string.search_select_group),
-        endAction = {
-            MediumIconButton(
-                onClick = {
-                    viewModel.startSearch()
-                    showFilterSheet = false
-                },
-                imageVector = Icons.Default.Check
-            )
+        isAll = scopeState.isAll,
+        onSelectAll = { viewModel.selectAllScope() },
+        groups = groups,
+        selectedGroups = scopeState.displayNames,
+        onToggleGroup = { viewModel.toggleScopeGroup(it) },
+        sources = enabledSources,
+        selectedSources = scopeState.sourceUrls,
+        onToggleSource = { viewModel.toggleScopeSource(it) },
+        isSourceScope = scopeState.isSource,
+        onConfirm = {
+            viewModel.startSearch()
+            showFilterSheet = false
         }
-    ) {
-        Column {
-            SelectionItemCard(
-                title = stringResource(R.string.all_source),
-                isSelected = scopeState.isAll,
-                containerColor = LegadoTheme.colorScheme.surface.copy(alpha = 0.6f),
-                inSelectionMode = true,
-                onToggleSelection = {
-                    viewModel.selectAllScope()
-                }
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-            AppTabRow(
-                tabTitles = listOf(
-                    stringResource(R.string.group),
-                    stringResource(R.string.book_source),
-                ),
-                selectedTabIndex = scopeSheetTab,
-                onTabSelected = { scopeSheetTab = it },
-            )
-            Spacer(modifier = Modifier.height(6.dp))
-
-            if (scopeSheetTab == 0) {
-                LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    items(groups, key = { it }) {
-                        val selected = !scopeState.isSource && scopeState.displayNames.contains(it)
-                        SelectionItemCard(
-                            title = it,
-                            isSelected = selected,
-                            containerColor = LegadoTheme.colorScheme.surface.copy(alpha = 0.6f),
-                            inSelectionMode = true,
-                            onToggleSelection = {
-                                viewModel.toggleScopeGroup(it)
-                            }
-                        )
-                    }
-                }
-            } else {
-                if (enabledSources.isEmpty()) {
-                    Text(
-                        text = stringResource(R.string.search_empty),
-                        style = LegadoTheme.typography.bodyMedium,
-                        color = LegadoTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 12.dp),
-                    )
-                } else {
-                    LazyColumn(
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        items(enabledSources, key = { it.bookSourceUrl }) {
-                            val selected = scopeState.sourceUrls.contains(it.bookSourceUrl)
-                            SelectionItemCard(
-                                title = it.bookSourceName,
-                                subtitle = it.bookSourceGroup?.takeIf { group -> group.isNotBlank() },
-                                containerColor = LegadoTheme.colorScheme.surface.copy(alpha = 0.6f),
-                                isSelected = selected,
-                                inSelectionMode = true,
-                                onToggleSelection = {
-                                    viewModel.toggleScopeSource(it)
-                                }
-                            )
-                        }
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(20.dp))
-        }
-    }
+    )
 }
 

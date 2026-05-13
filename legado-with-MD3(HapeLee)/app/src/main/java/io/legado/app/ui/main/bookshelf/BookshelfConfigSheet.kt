@@ -91,10 +91,13 @@ fun BookshelfConfigSheet(
                 onValueChange = { BookshelfConfig.bookshelfSortOrder = it.toInt() }
             )
 
-            // Layout Mode
+            // Layout Mode (non-folder)
             val layoutMode =
                 if (isLandscape) BookshelfConfig.bookshelfLayoutModeLandscape
                 else BookshelfConfig.bookshelfLayoutModePortrait
+            val folderLayoutMode =
+                if (isLandscape) BookshelfConfig.bookshelfFolderLayoutModeLandscape
+                else BookshelfConfig.bookshelfFolderLayoutModePortrait
 
             CompactDropdownSettingItem(
                 title = stringResource(R.string.layout_mode),
@@ -108,8 +111,57 @@ fun BookshelfConfigSheet(
                 }
             )
 
+            // Folder Layout Mode
+            AnimatedVisibility(visible = BookshelfConfig.bookGroupStyle == 2) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    CompactDropdownSettingItem(
+                        title = "文件夹布局模式",
+                        description = stringResource(if (isLandscape) R.string.screen_landscape else R.string.screen_portrait),
+                        selectedValue = folderLayoutMode.toString(),
+                        displayEntries = arrayOf(stringResource(R.string.layout_mode_list), stringResource(R.string.layout_mode_grid)),
+                        entryValues = arrayOf("0", "1"),
+                        onValueChange = {
+                            if (isLandscape) BookshelfConfig.bookshelfFolderLayoutModeLandscape = it.toInt()
+                            else BookshelfConfig.bookshelfFolderLayoutModePortrait = it.toInt()
+                        }
+                    )
+
+                    AnimatedVisibility(visible = folderLayoutMode == 1) {
+                        val folderGridCount =
+                            if (isLandscape) BookshelfConfig.bookshelfFolderLayoutGridLandscape
+                            else BookshelfConfig.bookshelfFolderLayoutGridPortrait
+                        CompactSliderSettingItem(
+                            title = stringResource(R.string.number_rows_columns),
+                            value = folderGridCount.toFloat(),
+                            valueRange = 1f..15f,
+                            steps = 14,
+                            onValueChange = {
+                                if (isLandscape) BookshelfConfig.bookshelfFolderLayoutGridLandscape = it.toInt()
+                                else BookshelfConfig.bookshelfFolderLayoutGridPortrait = it.toInt()
+                            }
+                        )
+                    }
+
+                    AnimatedVisibility(visible = folderLayoutMode != 1) {
+                        val folderListCount =
+                            if (isLandscape) BookshelfConfig.bookshelfFolderLayoutListLandscape
+                            else BookshelfConfig.bookshelfFolderLayoutListPortrait
+                        CompactSliderSettingItem(
+                            title = stringResource(R.string.number_rows_columns),
+                            value = folderListCount.toFloat(),
+                            valueRange = 1f..5f,
+                            steps = 4,
+                            onValueChange = {
+                                if (isLandscape) BookshelfConfig.bookshelfFolderLayoutListLandscape = it.toInt()
+                                else BookshelfConfig.bookshelfFolderLayoutListPortrait = it.toInt()
+                            }
+                        )
+                    }
+                }
+            }
+
             AnimatedVisibility(
-                visible = BookshelfConfig.bookGroupStyle == 2 && layoutMode == 0
+                visible = BookshelfConfig.bookGroupStyle == 2 && folderLayoutMode == 0
             ) {
                 Column(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -180,7 +232,23 @@ fun BookshelfConfigSheet(
             AnimatedVisibility(
                 visible = layoutMode != 1
             ) {
-                val isHorizontalCovers = BookshelfConfig.bookGroupStyle == 2 && BookshelfConfig.bookshelfGroupListStyle == 2
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    CompactSwitchSettingItem(
+                        title = stringResource(R.string.show_divider_line),
+                        checked = BookshelfConfig.bookshelfShowDivider,
+                        color = LegadoTheme.colorScheme.surface,
+                        onCheckedChange = { BookshelfConfig.bookshelfShowDivider = it }
+                    )
+
+                    CompactClickableSettingItem(
+                        title = "卡片背景颜色",
+                        color = LegadoTheme.colorScheme.surface,
+                        onClick = { showColorPicker = true }
+                    )
+
+                    val isHorizontalCovers = BookshelfConfig.bookGroupStyle == 2 && BookshelfConfig.bookshelfGroupListStyle == 2
 
                     AnimatedVisibility(visible = !isHorizontalCovers) {
                         Column(
@@ -195,13 +263,6 @@ fun BookshelfConfigSheet(
                                 )
                             }
 
-                            CompactSwitchSettingItem(
-                                title = stringResource(R.string.show_divider_line),
-                                checked = BookshelfConfig.bookshelfShowDivider,
-                                color = LegadoTheme.colorScheme.surface,
-                                onCheckedChange = { BookshelfConfig.bookshelfShowDivider = it }
-                            )
-
                             val listColCount =
                                 if (isLandscape) BookshelfConfig.bookshelfLayoutListLandscape else BookshelfConfig.bookshelfLayoutListPortrait
                             CompactSliderSettingItem(
@@ -214,12 +275,6 @@ fun BookshelfConfigSheet(
                                         it.toInt()
                                     else BookshelfConfig.bookshelfLayoutListPortrait = it.toInt()
                                 }
-                            )
-
-                            CompactClickableSettingItem(
-                                title = "卡片背景颜色",
-                                color = LegadoTheme.colorScheme.surface,
-                                onClick = { showColorPicker = true }
                             )
 
                             CompactSwitchSettingItem(
@@ -282,7 +337,7 @@ fun BookshelfConfigSheet(
                             }
                         }
                     }
-
+                }
             }
 
             CompactSliderSettingItem(

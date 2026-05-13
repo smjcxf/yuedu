@@ -5,6 +5,7 @@ import android.content.res.Configuration
 import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.ManagedActivityResultLauncher
+import androidx.activity.compose.ReportDrawnWhen
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
@@ -81,6 +82,7 @@ import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -89,6 +91,7 @@ import io.legado.app.R
 import io.legado.app.base.BaseRuleEvent
 import io.legado.app.ui.about.AppLogSheet
 import io.legado.app.data.entities.BookGroup
+import io.legado.app.ui.book.group.GroupEditSheet
 import io.legado.app.ui.book.info.GroupSelectSheet
 import io.legado.app.ui.config.bookshelfConfig.BookshelfConfig
 import io.legado.app.ui.main.bookCoverSharedElementKey
@@ -144,6 +147,8 @@ fun BookshelfScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
+
+    ReportDrawnWhen { uiState.groups.isNotEmpty() }
 
     val activeOverlay = uiState.activeOverlay
     val showGroupMenu = activeOverlay == BookshelfOverlay.GroupMenu
@@ -327,6 +332,21 @@ fun BookshelfScreen(
     val bookshelfLayoutList by remember {
         derivedStateOf {
             if (isLandscape) BookshelfConfig.bookshelfLayoutListLandscape else BookshelfConfig.bookshelfLayoutListPortrait
+        }
+    }
+    val bookshelfFolderLayoutMode by remember {
+        derivedStateOf {
+            if (isLandscape) BookshelfConfig.bookshelfFolderLayoutModeLandscape else BookshelfConfig.bookshelfFolderLayoutModePortrait
+        }
+    }
+    val bookshelfFolderLayoutGrid by remember {
+        derivedStateOf {
+            if (isLandscape) BookshelfConfig.bookshelfFolderLayoutGridLandscape else BookshelfConfig.bookshelfFolderLayoutGridPortrait
+        }
+    }
+    val bookshelfFolderLayoutList by remember {
+        derivedStateOf {
+            if (isLandscape) BookshelfConfig.bookshelfFolderLayoutListLandscape else BookshelfConfig.bookshelfFolderLayoutListPortrait
         }
     }
     val currentMenuGroupId by remember {
@@ -678,8 +698,8 @@ fun BookshelfScreen(
             ) { isRoot ->
                 if (bookGroupStyle == 2 && isRoot && !isUsingStandaloneSearchGroup) {
                     val folderColumns =
-                        if (bookshelfLayoutMode == 0) bookshelfLayoutList else bookshelfLayoutGrid
-                    val isGridMode = bookshelfLayoutMode != 0
+                        if (bookshelfFolderLayoutMode == 0) bookshelfFolderLayoutList else bookshelfFolderLayoutGrid
+                    val isGridMode = bookshelfFolderLayoutMode != 0
                     FastScrollLazyVerticalGrid(
                         columns = GridCells.Fixed(folderColumns.coerceAtLeast(1)),
                         modifier = Modifier
@@ -708,7 +728,7 @@ fun BookshelfScreen(
                             } else {
                                 null
                             }
-                            if (bookshelfLayoutMode == 0) {
+                            if (bookshelfFolderLayoutMode == 0) {
                                 BookGroupItemList(
                                     group = group,
                                     previewBooks = uiState.groupPreviews[group.groupId]
@@ -724,8 +744,9 @@ fun BookshelfScreen(
                                         viewModel.setInFolderRoot(false)
                                     },
                                     onLongClick = {
-                                        viewModel.showOverlay(BookshelfOverlay.GroupManageSheet)
-                                    }
+                                        viewModel.showOverlay(BookshelfOverlay.GroupEditSheet(group.groupId))
+                                    },
+                                    onBookClick = onBookClick
                                 )
                             } else {
                                 BookGroupItemGrid(
@@ -743,7 +764,7 @@ fun BookshelfScreen(
                                         viewModel.setInFolderRoot(false)
                                     },
                                     onLongClick = {
-                                        viewModel.showOverlay(BookshelfOverlay.GroupManageSheet)
+                                        viewModel.showOverlay(BookshelfOverlay.GroupEditSheet(group.groupId))
                                     }
                                 )
                             }
@@ -1020,6 +1041,17 @@ private fun BookshelfOverlays(
 
     val groups by viewModel.allGroupsFlow.collectAsStateWithLifecycle()
 
+    if (activeOverlay is BookshelfOverlay.GroupEditSheet) {
+        val editGroup = groups.firstOrNull { it.groupId == activeOverlay.groupId }
+        if (editGroup != null) {
+            GroupEditSheet(
+                show = true,
+                group = editGroup,
+                onDismissRequest = { viewModel.dismissOverlay() }
+            )
+        }
+    }
+
     GroupSelectSheet(
         show = activeOverlay == BookshelfOverlay.GroupSelectSheet,
         groups = groups.filter { it.groupId > 0 },
@@ -1215,6 +1247,7 @@ fun BookshelfPage(
             state = gridState,
             modifier = Modifier
                 .fillMaxSize()
+                .testTag("bookshelf_list")
                 .then(
                     with(sharedTransitionScope) {
                         if (this != null) Modifier.skipToLookaheadSize() else Modifier

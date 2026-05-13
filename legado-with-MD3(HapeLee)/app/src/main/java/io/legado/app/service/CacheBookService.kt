@@ -38,6 +38,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import splitties.init.appCtx
 import splitties.systemservices.notificationManager
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 import kotlin.math.min
 
@@ -49,7 +50,9 @@ class CacheBookService : BaseService() {
     companion object {
         private const val MB = 1024L * 1024L
         private const val DIAGNOSTICS_LOG_INTERVAL_MILLIS = 5_000L
+        private const val MAX_IDLE_SPIN_MS = 60_000L
 
+        @Volatile
         var isRun = false
             private set
     }
@@ -68,7 +71,7 @@ class CacheBookService : BaseService() {
     private val downloadJobLock = Any()
     private var downloadJob: Job? = null
     private var notificationContent = appCtx.getString(R.string.service_starting)
-    private var mutex = Mutex()
+    private val bookLocks = ConcurrentHashMap<String, Mutex>()
     private var lastDiagnosticsLogTime = 0L
     private val notificationBuilder by lazy {
         val builder = NotificationCompat.Builder(this, AppConst.channelIdDownload)
@@ -181,16 +184,9 @@ class CacheBookService : BaseService() {
             admissionIdleWaiters.values.flatten().forEach { it.complete(Unit) }
             admissionIdleWaiters.clear()
         }
-        serviceCommandScope.launch {
-            try {
-                serviceCommandMutex.withLock {
-                    CacheBook.close(clearFailureState = false)
-                }
-            } finally {
-                serviceCommandScope.cancel()
-            }
-        }
+        CacheBook.shutdownPreservingPaused()
         super.onDestroy()
+        serviceCommandScope.cancel()
     }
 
     private fun reconstructRequestFromIntent(intent: Intent): CacheDownloadRequest? {
@@ -303,7 +299,8 @@ class CacheBookService : BaseService() {
 
         if (chapterCount == 0) {
             cacheBook.setLoading()
-            mutex.withLock {
+            val bookMutex = bookLocks.getOrPut(request.bookUrl) { Mutex() }
+            bookMutex.withLock {
                 val name = book.name
                 if (!admission.isCurrent()) {
                     CacheBook.removeModelFromService(request.bookUrl, cacheBook)
@@ -377,8 +374,8 @@ class CacheBookService : BaseService() {
     }
 
     private fun admittedBookUrls(): Set<String> {
-        return CacheBook.cacheBookMap.keys.toHashSet().apply {
-            synchronized(admissionLock) {
+        return synchronized(admissionLock) {
+            CacheBook.cacheBookMap.keys.toHashSet().apply {
                 addAll(admittingBookUrls)
             }
         }
@@ -437,21 +434,24 @@ class CacheBookService : BaseService() {
     }
 
     private fun finishAdmissionJob(bookUrl: String) {
-        var restart = false
         val waiters = synchronized(admissionLock) {
             val buffer = admissionBuffers[bookUrl]
             if (buffer != null && buffer.isNotEmpty()) {
-                restart = true
-                emptyList()
-            } else {
-                admissionBuffers.remove(bookUrl)
-                admittingBookUrls.remove(bookUrl)
-                admissionIdleWaiters.remove(bookUrl).orEmpty()
+                // New requests arrived while job was finishing — restart immediately.
+                startAdmissionJob(bookUrl)
+                return
             }
-        }
-        if (restart) {
-            startAdmissionJob(bookUrl)
-            return
+            admissionBuffers.remove(bookUrl)
+            admittingBookUrls.remove(bookUrl)
+            // Re-check: a concurrent submitDownloadRequest may have added a request
+            // between the buffer empty-check and the admittingBookUrls removal.
+            val recheck = admissionBuffers[bookUrl]
+            if (recheck != null && recheck.isNotEmpty()) {
+                admittingBookUrls.add(bookUrl)
+                startAdmissionJob(bookUrl)
+                return
+            }
+            admissionIdleWaiters.remove(bookUrl).orEmpty()
         }
         waiters.forEach { it.complete(Unit) }
     }
@@ -486,18 +486,23 @@ class CacheBookService : BaseService() {
 
     private suspend fun runDownloadLoop() {
         try {
+            var idleSince = -1L
             while (currentCoroutineContext().isActive) {
                 drainPendingDownloadRequests()
                 if (CacheBook.isGloballyPaused) {
-                    delay(200)
+                    break
+                }
+                if (CacheBook.isRun) {
+                    idleSince = -1L
+                    CacheBook.startProcessJob(cachePool)
                     continue
                 }
-                if (!CacheBook.isRun) {
-                    if (!hasPendingDownloadRequests() && !hasAdmittingRequests()) break
-                    delay(200)
-                    continue
-                }
-                CacheBook.startProcessJob(cachePool)
+                // !isRun — only keep looping while there is pending/admitting work.
+                if (!hasPendingDownloadRequests() && !hasAdmittingRequests()) break
+                val now = System.currentTimeMillis()
+                if (idleSince < 0) idleSince = now
+                if (now - idleSince > MAX_IDLE_SPIN_MS) break
+                delay(200)
             }
         } finally {
             val finishedJob = currentCoroutineContext()[Job]
