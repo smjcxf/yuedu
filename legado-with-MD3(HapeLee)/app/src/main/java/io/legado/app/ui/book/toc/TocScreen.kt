@@ -52,8 +52,8 @@ import androidx.compose.material.icons.filled.VerticalAlignTop
 import androidx.compose.material.icons.outlined.DownloadForOffline
 import androidx.compose.material.icons.rounded.LocationOn
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import io.legado.app.ui.widget.components.progressIndicator.AppCircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FloatingActionButtonMenu
 import androidx.compose.material3.FloatingActionButtonMenuItem
@@ -108,10 +108,12 @@ import io.legado.app.ui.widget.components.card.NormalCard
 import io.legado.app.ui.widget.components.card.TextCard
 import io.legado.app.ui.widget.components.divider.PillDivider
 import io.legado.app.ui.widget.components.divider.PillHeaderDivider
+import io.legado.app.ui.widget.components.icon.AppIcon
 import io.legado.app.ui.widget.components.lazylist.FastScrollLazyColumn
 import io.legado.app.ui.widget.components.list.TopFloatingStickyItem
 import io.legado.app.ui.widget.components.menuItem.RoundDropdownMenu
 import io.legado.app.ui.widget.components.menuItem.RoundDropdownMenuItem
+import io.legado.app.ui.widget.components.progressIndicator.AppContainedLoadingIndicator
 import io.legado.app.ui.widget.components.tabRow.AppTabRow
 import io.legado.app.ui.widget.components.text.AppText
 import io.legado.app.ui.widget.components.topbar.DynamicTopAppBar
@@ -244,17 +246,17 @@ fun TocScreen(
         listOf(
             ActionItem(
                 text = "反选",
-                icon = { Icon(Icons.Default.Refresh, contentDescription = null) },
+                icon = Icons.Default.Refresh,
                 onClick = { viewModel.invertSelection() }
             ),
             ActionItem(
                 text = "选择后续",
-                icon = { Icon(Icons.Default.ExpandMore, contentDescription = null) },
+                icon = Icons.Default.ExpandMore,
                 onClick = { viewModel.selectFromLast() }
             ),
             ActionItem(
                 text = "添加书签",
-                icon = { Icon(Icons.Default.BookmarkAdd, contentDescription = null) },
+                icon = Icons.Default.BookmarkAdd,
                 onClick = { viewModel.addBookmarksForSelected() }
             )
         )
@@ -577,7 +579,7 @@ fun TocScreen(
                     onSelectInvert = { viewModel.invertSelection() },
                     primaryAction = ActionItem(
                         text = "下载已选 (${state.selectedIds.size})",
-                        icon = { Icon(Icons.Default.Download, null) },
+                        icon = Icons.Default.Download,
                         onClick = { viewModel.downloadSelected() }
                     ),
                     secondaryActions = selectionSecondaryActions
@@ -943,10 +945,8 @@ private fun StatusIcon(
             }
 
             "LOADING" -> {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(24.dp),
-                    strokeWidth = 2.dp,
-                    color = LegadoTheme.colorScheme.secondary
+                AppContainedLoadingIndicator(
+                    modifier = Modifier.size(20.dp)
                 )
             }
 

@@ -32,9 +32,8 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.outlined.FolderZip
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearProgressIndicator
+import io.legado.app.ui.widget.components.progressIndicator.AppCircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -74,7 +73,7 @@ import io.legado.app.ui.book.search.ScopeSelectSheet
 import io.legado.app.ui.book.source.edit.BookSourceEditActivity
 import io.legado.app.ui.book.source.manage.BookSourceActivity
 import io.legado.app.ui.theme.LegadoTheme
-import io.legado.app.ui.widget.components.AppLinearProgressIndicator
+import io.legado.app.ui.widget.components.progressIndicator.AppLinearProgressIndicator
 import io.legado.app.ui.widget.components.AppTextField
 import io.legado.app.ui.widget.components.EmptyMessage
 import io.legado.app.ui.widget.components.alert.AppAlertDialog
@@ -234,7 +233,7 @@ fun ChangeCoverSheet(
         }
     ) {
         if (isSearching) {
-            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+            AppLinearProgressIndicator(modifier = Modifier.fillMaxWidth())
             Spacer(modifier = Modifier.height(12.dp))
         }
         LazyVerticalGrid(columns = GridCells.Fixed(3), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -588,7 +587,7 @@ fun ChangeSourceSheet(
         onDismissRequest = {},
         content = {
             Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
+                AppCircularProgressIndicator()
             }
         }
     )

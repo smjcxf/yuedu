@@ -41,10 +41,10 @@ import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FloatingActionButtonMenu
 import androidx.compose.material3.FloatingActionButtonMenuItem
+import io.legado.app.ui.widget.components.progressIndicator.AppCircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
@@ -87,7 +87,7 @@ import io.legado.app.ui.book.info.ChangeSourceSheet
 import io.legado.app.ui.book.info.GroupSelectSheet
 import io.legado.app.ui.theme.LegadoTheme
 import io.legado.app.ui.theme.adaptiveContentPadding
-import io.legado.app.ui.widget.components.AppLinearProgressIndicator
+import io.legado.app.ui.widget.components.progressIndicator.AppLinearProgressIndicator
 import io.legado.app.ui.widget.components.AppTextField
 import io.legado.app.ui.widget.components.alert.AppAlertDialog
 import io.legado.app.ui.widget.components.button.SmallTonalIconButton
@@ -962,7 +962,7 @@ private fun BookshelfManageScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 if (state.isChangingSource) {
-                    CircularProgressIndicator()
+                    AppCircularProgressIndicator()
                 }
                 AppText(
                     text = state.changeSourceError ?: state.changeSourceProgress ?: "准备中",
