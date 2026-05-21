@@ -37,6 +37,7 @@ lifecycle = "2.10.0"
 glide = "5.0.7"
 gson = "2.14.0"
 jsonPath = "3.0.0"
+ktor = "2.3.12"
 # issue #3811，不要更新版本，新版引入了一个破坏性变更（详见https://github.com/jhy/jsoup/pull/2017）
 # 若要升级请确保相关代码不会受此变更影响（如AnalyzeByJSoup.kt、JsoupXpath库等）
 jsoup = "1.16.2"
@@ -53,7 +54,6 @@ material3IconsExtended = "1.7.8"
 materialKolor = "4.1.1"
 media = "1.8.0"
 media3 = "1.8.0"
-nanoHttpd = "2.3.1"
 navigationCompose = "2.9.8"
 okhttp = "5.3.2"
 palette = "1.0.0"
@@ -180,8 +180,12 @@ markwon-image-glide = { module = "io.noties.markwon:image-glide", version.ref = 
 markwon-ext-tables = { module = "io.noties.markwon:ext-tables", version.ref = "markwon" }
 markwon-html = { module = "io.noties.markwon:html", version.ref = "markwon" }
 
-nanohttpd-nanohttpd = { module = "org.nanohttpd:nanohttpd", version.ref = "nanoHttpd" }
-nanohttpd-websocket = { module = "org.nanohttpd:nanohttpd-websocket", version.ref = "nanoHttpd" }
+ktor-server-core = { module = "io.ktor:ktor-server-core", version.ref = "ktor" }
+ktor-server-cio = { module = "io.ktor:ktor-server-cio", version.ref = "ktor" }
+ktor-server-content-negotiation = { module = "io.ktor:ktor-server-content-negotiation", version.ref = "ktor" }
+ktor-serialization-gson = { module = "io.ktor:ktor-serialization-gson", version.ref = "ktor" }
+ktor-server-cors = { module = "io.ktor:ktor-server-cors", version.ref = "ktor" }
+ktor-server-websockets = { module = "io.ktor:ktor-server-websockets", version.ref = "ktor" }
 
 navigation-compose = { module = "androidx.navigation:navigation-compose" }
 preference-preference = { module = "androidx.preference:preference", version.ref = "preference" }
