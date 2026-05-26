@@ -24,7 +24,7 @@
     <string name="dialog_setting">去设置</string>
     <string name="tip_cannot_jump_setting_page">无法跳转至设置界面</string>
 
-    <string name="manual_input">手动输入</string>
+    <string name="manual_input">输入URL</string>
     <string name="preferred_contrast">偏好对比度</string>
     <string name="contrast_source_system_summary">来源：系统对比度</string>
     <string name="contrast_source_manual_summary">来源：手动输入</string>
@@ -570,6 +570,8 @@
     <string name="no">否</string>
     <string name="sure">确认</string>
     <string name="sure_del">是否确认删除?</string>
+    <string name="sure_del_private_group">删除后，相关书籍可能在公开书架中显示，是否确认删除？</string>
+    <string name="sure_disable_private_group">关闭后，本组书籍可能在公开书架中显示，是否确认关闭？</string>
     <string name="sure_del_any">是否确认删除 %s ?</string>
     <string name="sure_del_all_book">是否删除全部书籍?</string>
     <string name="sure_del_download_book">是否同时删除已下载的书籍目录?</string>
@@ -897,7 +899,7 @@
     <string name="body_title">正文标题</string>
     <string name="show_hide">显示/隐藏</string>
     <string name="header_footer">页眉与页脚</string>
-    <string name="rule_subscription">规则订阅</string>
+    <string name="rule_subscription">规则</string>
     <string name="rule_sub_empty_msg">添加大佬们提供的规则导入地址\n添加后点击可导入规则</string>
     <string name="get_book_progress">拉取云端进度</string>
     <string name="cover_book_progress">覆盖云端进度</string>
@@ -1207,6 +1209,9 @@
     <string name="file_manage_summary">管理私有文件夹的文件</string>
     <string name="create_folder">创建文件夹</string>
     <string name="allow_drop_down_refresh">允许下拉刷新</string>
+    <string name="private_group">设为隐私分组</string>
+    <string name="disable_private_group">关闭隐私分组</string>
+    <string name="private_group_desc">开启后，本分组内的书籍将从公开书架隐藏</string>
     <string name="text_underline">文字下划线</string>
     <string name="select_new_source">选中新增源</string>
     <string name="select_update_source">选中更新源</string>
@@ -1643,6 +1648,8 @@
     <string name="search_source_progress"> · 进度 %1$d/%2$d</string>
     <string name="search_empty_scope_disable_precision">%1$s分组搜索结果为空，是否关闭精准搜索？</string>
     <string name="search_empty_scope_switch_all">%1$s分组搜索结果为空，是否切换到全部分组？</string>
+    <string name="search_layout_list">列表布局</string>
+    <string name="search_layout_source_grouped">来源分组</string>
     <string name="download_cache_config">下载与缓存</string>
     <string name="http_cache">HTTP缓存</string>
     <string name="cover_cache">封面缓存</string>
