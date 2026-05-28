@@ -6,6 +6,7 @@ import android.content.Intent
 import android.graphics.Typeface
 import android.os.Handler
 import android.os.Looper
+import android.widget.TextView
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -61,6 +62,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringArrayResource
@@ -68,6 +70,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.constraintlayout.compose.ConstraintLayout
@@ -90,6 +93,7 @@ import io.legado.app.ui.widget.components.SplicedColumnGroup
 import io.legado.app.ui.widget.components.alert.AppAlertDialog
 import io.legado.app.ui.widget.components.button.series.SmallPlainButton
 import io.legado.app.ui.widget.components.card.GlassCard
+import io.legado.app.ui.widget.components.card.NormalCard
 import io.legado.app.ui.widget.components.dialog.ColorPickerSheet
 import io.legado.app.ui.widget.components.icon.AppIcons
 import io.legado.app.ui.widget.components.modalBottomSheet.AppModalBottomSheet
@@ -797,7 +801,8 @@ fun ThemeConfigScreen(
                 ) {
                     fontItems.forEach { fontDoc ->
                         item {
-                            Card(
+                            val textColor = LegadoTheme.colorScheme.onSurface.toArgb()
+                            NormalCard(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .height(100.dp),
@@ -805,15 +810,14 @@ fun ThemeConfigScreen(
                                     ThemeConfig.appFontPath = fontDoc.uri.toString()
                                     showFontSheet = false
                                 },
-                                colors = CardDefaults.cardColors(
-                                    containerColor = MaterialTheme.colorScheme.surfaceVariant
-                                )
+                                containerColor = LegadoTheme.colorScheme.onSheetContent
                             ) {
                                 AndroidView(
                                     factory = { ctx ->
-                                        android.widget.TextView(ctx).apply {
+                                        TextView(ctx).apply {
                                             text = fontDoc.name
                                             textSize = 14f
+                                            setTextColor(textColor)
                                             gravity = android.view.Gravity.CENTER
                                             maxLines = 2
                                             ellipsize = android.text.TextUtils.TruncateAt.END
@@ -829,7 +833,9 @@ fun ThemeConfigScreen(
                                             }
                                         }
                                     },
-                                    modifier = Modifier.fillMaxSize()
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(12.dp)
                                 )
                             }
                         }
@@ -886,7 +892,11 @@ fun ThemeModeSelector(
 
                 Spacer(Modifier.size(ToggleButtonDefaults.IconSpacing))
 
-                Text(text = label)
+                Text(
+                    text = label,
+                    overflow = TextOverflow.Ellipsis,
+                    maxLines = 1
+                )
             }
         }
     }

@@ -900,7 +900,7 @@
     <string name="show_hide">显示/隐藏</string>
     <string name="header_footer">页眉与页脚</string>
     <string name="rule_subscription">规则</string>
-    <string name="rule_sub_empty_msg">添加大佬们提供的规则导入地址\n添加后点击可导入规则</string>
+    <string name="rule_sub_empty_msg">还没有规则订阅！</string>
     <string name="get_book_progress">拉取云端进度</string>
     <string name="cover_book_progress">覆盖云端进度</string>
     <string name="current_progress_exceeds_cloud">当前进度超过云端进度，是否同步？</string>
@@ -954,7 +954,7 @@
     <string name="hide_when_status_bar_show">状态栏显示时隐藏</string>
     <string name="reverse_toc">反转目录</string>
     <string name="show_discovery">显示发现</string>
-    <string name="show_home">显示首页</string>
+    <string name="show_home">显示主页</string>
     <string name="style">样式</string>
     <string name="group_style">分组样式</string>
     <string name="export_file_name">导出文件名</string>
