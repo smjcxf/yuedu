@@ -63,8 +63,8 @@ import io.legado.app.ui.config.themeConfig.ThemeConfig
 import io.legado.app.utils.GSON
 import io.legado.app.utils.ImageSaveUtils
 import io.legado.app.utils.NetworkUtils
-import io.legado.app.utils.StringUtils
 import io.legado.app.utils.fromJsonObject
+import io.legado.app.utils.StringUtils
 import io.legado.app.utils.hexString
 import io.legado.app.utils.isAbsUrl
 import io.legado.app.utils.isTrue
@@ -528,7 +528,12 @@ class ReadBookViewModel(
             }
 
             is ReadBookIntent.ShowReadAloudConfig -> {
-                _uiState.update { it.copy(activeSheet = ReadBookSheet.ReadAloudConfig) }
+                _uiState.update {
+                    it.copy(
+                        speakEngineName = computeSpeakEngineName(),
+                        activeSheet = ReadBookSheet.ReadAloudConfig,
+                    )
+                }
                 loadTtsEngineItems()
             }
 
@@ -558,7 +563,7 @@ class ReadBookViewModel(
                 AppConfig.ttsEngine = intent.value
                 _uiState.update {
                     it.copy(
-                        selectedTtsEngine = intent.value,
+                        selectedTtsEngine = ReadAloud.ttsEngine,
                         speakEngineName = computeSpeakEngineName(),
                         activeSheet = ReadBookSheet.ReadAloudConfig,
                     )
@@ -873,7 +878,6 @@ class ReadBookViewModel(
                 it.copy(
                     ttsEngineItems = items.toImmutableList(),
                     selectedTtsEngine = ReadAloud.ttsEngine,
-                    speakEngineName = computeSpeakEngineName(),
                 )
             }
             onSuccess?.invoke()
