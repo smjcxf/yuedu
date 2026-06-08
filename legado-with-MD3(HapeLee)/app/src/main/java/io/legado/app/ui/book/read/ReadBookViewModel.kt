@@ -20,6 +20,7 @@ import io.legado.app.data.entities.Book
 import io.legado.app.data.entities.BookChapter
 import io.legado.app.data.entities.BookProgress
 import io.legado.app.data.entities.Bookmark
+import io.legado.app.data.entities.HttpTTS
 import io.legado.app.data.repository.ReadAloudSettingsRepository
 import io.legado.app.data.repository.ReadBookStyleConfigRepository
 import io.legado.app.data.repository.ReadPreferences
@@ -28,6 +29,7 @@ import io.legado.app.domain.model.ReadingProgress
 import io.legado.app.domain.usecase.GetReadingProgressUseCase
 import io.legado.app.domain.usecase.UploadReadingProgressUseCase
 import io.legado.app.exception.NoStackTraceException
+import io.legado.app.help.DefaultData
 import io.legado.app.help.book.BookHelp
 import io.legado.app.help.book.ContentProcessor
 import io.legado.app.help.book.isEpub
@@ -63,8 +65,8 @@ import io.legado.app.ui.config.themeConfig.ThemeConfig
 import io.legado.app.utils.GSON
 import io.legado.app.utils.ImageSaveUtils
 import io.legado.app.utils.NetworkUtils
-import io.legado.app.utils.fromJsonObject
 import io.legado.app.utils.StringUtils
+import io.legado.app.utils.fromJsonObject
 import io.legado.app.utils.hexString
 import io.legado.app.utils.isAbsUrl
 import io.legado.app.utils.isTrue
@@ -589,6 +591,90 @@ class ReadBookViewModel(
                     )
                 }
             }
+
+            is ReadBookIntent.EditHttpTts -> {
+                if (intent.engineId == null) {
+                    _uiState.update {
+                        it.copy(
+                            editingHttpTts = HttpTTS(),
+                            activeSheet = ReadBookSheet.HttpTtsEdit(),
+                        )
+                    }
+                } else {
+                    execute {
+                        appDb.httpTTSDao.get(intent.engineId)
+                    }.onSuccess { tts ->
+                        _uiState.update {
+                            it.copy(
+                                editingHttpTts = tts,
+                                activeSheet = ReadBookSheet.HttpTtsEdit(intent.engineId),
+                            )
+                        }
+                    }
+                }
+            }
+
+            is ReadBookIntent.DeleteHttpTts -> {
+                execute {
+                    appDb.httpTTSDao.get(intent.engineId)?.let { tts ->
+                        appDb.httpTTSDao.delete(tts)
+                    }
+                }.onSuccess {
+                    loadTtsEngineItems()
+                    if (ReadAloud.ttsEngine == intent.engineId.toString()) {
+                        AppConfig.ttsEngine = null
+                        ReadAloud.upReadAloudClass()
+                    }
+                }
+            }
+
+            is ReadBookIntent.SaveHttpTts -> {
+                execute {
+                    appDb.httpTTSDao.insert(intent.httpTTS)
+                }.onSuccess {
+                    loadTtsEngineItems()
+                    _uiState.update {
+                        it.copy(
+                            editingHttpTts = null,
+                            activeSheet = ReadBookSheet.SpeakEngineConfig,
+                        )
+                    }
+                }
+            }
+
+            is ReadBookIntent.ApplySpeakEnginePerBook -> {
+                ReadBook.book?.setTtsEngine(intent.value)
+                _uiState.update {
+                    it.copy(
+                        selectedTtsEngine = ReadAloud.ttsEngine,
+                        speakEngineName = computeSpeakEngineName(),
+                        activeSheet = ReadBookSheet.ReadAloudConfig,
+                    )
+                }
+            }
+
+            is ReadBookIntent.ImportHttpTtsJson -> {
+                execute {
+                    HttpTTS.fromJsonArray(intent.json).getOrDefault(arrayListOf())
+                }.onSuccess { list ->
+                    if (list.isNotEmpty()) {
+                        execute {
+                            appDb.httpTTSDao.insert(*list.toTypedArray())
+                        }.onSuccess {
+                            loadTtsEngineItems()
+                        }
+                    }
+                }
+            }
+
+            is ReadBookIntent.ExportAllHttpTts -> {
+                execute {
+                    GSON.toJson(appDb.httpTTSDao.all)
+                }.onSuccess { json ->
+                    _effects.tryEmit(ReadBookEffect.ExportJson(json))
+                }
+            }
+
             is ReadBookIntent.SetReadAloudIgnoreAudioFocus -> {
                 viewModelScope.launch { readAloudSettingsRepository.setIgnoreAudioFocus(intent.value) }
             }
@@ -704,6 +790,26 @@ class ReadBookViewModel(
                         setOf(ConfigUpdateAction.UpdateBackground, ConfigUpdateAction.UpdateStyle, ConfigUpdateAction.ReloadContent)
                     ))
                 }
+            }
+            is ReadBookIntent.ApplyPresetTheme -> {
+                val presets = DefaultData.readConfigs
+                val preset = presets.getOrNull(intent.presetIndex) ?: return@onIntent
+                ReadBookConfig.durConfig =
+                    GSON.fromJsonObject<ReadBookConfig.Config>(GSON.toJson(preset)).getOrNull()
+                        ?: return@onIntent
+                readBookStyleConfigRepository.save()
+                _uiState.update { it.copy(styleConfig = buildStyleConfig()) }
+                _effects.tryEmit(
+                    ReadBookEffect.UpdateReadViewConfig(
+                        setOf(
+                            ConfigUpdateAction.UpdateBackground,
+                            ConfigUpdateAction.UpdateBackgroundAlpha,
+                            ConfigUpdateAction.UpdateStyle,
+                            ConfigUpdateAction.UpdateSystemUi,
+                            ConfigUpdateAction.ReloadContent
+                        )
+                    )
+                )
             }
             is ReadBookIntent.OpenBgTextConfig -> {
                 ReadBookConfig.styleSelect = intent.index
@@ -1170,7 +1276,6 @@ class ReadBookViewModel(
             readSettingsRepository.preferences.collect { preferences ->
                 val old = previous
                 previous = preferences
-                ReadBookConfig.syncPreferences(preferences)
                 AppConfig.syncReadPreferences(preferences)
                 _readPreferences.value = preferences
                 if (!preferences.hasMenuClickArea()) {
@@ -1327,6 +1432,7 @@ class ReadBookViewModel(
                 readMenuBottomBarBlurStyle = ReadBookConfig.readMenuBottomBarBlurStyle,
                 readMenuIconStyle = ReadBookConfig.readMenuIconStyle,
                 readMenuIconShowText = ReadBookConfig.readMenuIconShowText,
+                readSliderMode = ReadBookConfig.readSliderMode,
                 titleBarCustomIcons = ReadBookConfig.titleBarCustomIcons.toImmutableMap(),
                 readMenuCustomIcons = ReadBookConfig.readMenuCustomIcons.toImmutableMap(),
                 titleBarButtons = current.menuConfig.titleBarButtons,
@@ -2246,6 +2352,7 @@ class ReadBookViewModel(
             is ConfigUpdate.BgTypeEInk -> ReadBookConfig.durConfig.bgTypeEInk = update.value
             is ConfigUpdate.BgAlpha -> ReadBookConfig.bgAlpha = update.value
             is ConfigUpdate.StatusIconDark -> ReadBookConfig.durConfig.setCurStatusIconDark(update.value)
+            is ConfigUpdate.StyleName -> ReadBookConfig.durConfig.name = update.value
             is ConfigUpdate.MenuIconShowText -> {
                 ReadBookConfig.readMenuIconShowText = update.value
                 viewModelScope.launch {
@@ -2496,10 +2603,13 @@ class ReadBookViewModel(
                 }
             }
             is ConfigUpdate.ReadSliderMode -> {
+                ReadBookConfig.readSliderMode = update.value
                 viewModelScope.launch {
                     readSettingsRepository.setReadSliderMode(update.value)
                 }
-                postEvent(EventBus.UPDATE_READ_ACTION_BAR, true)
+                _uiState.update {
+                    it.copy(menuConfig = it.menuConfig.copy(readSliderMode = update.value))
+                }
             }
             is ConfigUpdate.DoubleHorizontalPage -> {
                 viewModelScope.launch {

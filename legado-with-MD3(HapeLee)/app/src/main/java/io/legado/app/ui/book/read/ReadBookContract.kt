@@ -9,6 +9,7 @@ import io.legado.app.data.entities.Book
 import io.legado.app.data.entities.BookChapter
 import io.legado.app.data.entities.BookProgress
 import io.legado.app.data.entities.BookSource
+import io.legado.app.data.entities.HttpTTS
 import io.legado.app.ui.book.read.page.entities.TextChapter
 import io.legado.app.ui.book.read.page.entities.TextPage
 import io.legado.app.ui.book.searchContent.SearchResult
@@ -134,6 +135,7 @@ data class ReadBookUiState(
     val ttsEngineItems: ImmutableList<ReadBookTtsEngineItem> = persistentListOf(),
     val selectedTtsEngine: String? = null,
     val speakEngineName: String = "",
+    val editingHttpTts: HttpTTS? = null,
     val preDownloadNum: Int = 10,
     val audioCacheCleanTime: Int = 10,
     // Read aloud config
@@ -178,6 +180,7 @@ data class ReadMenuConfig(
     val readMenuBottomBarBlurStyle: Int = ReadMenuBlurStyle.Solid,
     val readMenuIconStyle: Int = 0,
     val readMenuIconShowText: Boolean = true,
+    val readSliderMode: String = "0",
     val titleBarCustomIcons: ImmutableMap<String, String> = persistentMapOf(),
     val readMenuCustomIcons: ImmutableMap<String, String> = persistentMapOf(),
     val titleBarButtons: ImmutableList<ReadBookButtonConfigItem> = persistentListOf(),
@@ -363,6 +366,7 @@ sealed interface ReadBookIntent {
     data object SaveReadStyleConfig : ReadBookIntent
     data object AddReadStyleConfig : ReadBookIntent
     data object DeleteCurrentReadStyleConfig : ReadBookIntent
+    data class ApplyPresetTheme(val presetIndex: Int) : ReadBookIntent
 
     // Bookshelf
     data object RemoveFromBookshelf : ReadBookIntent
@@ -414,6 +418,12 @@ sealed interface ReadBookIntent {
     data class ApplySpeakEngine(val value: String?) : ReadBookIntent
     data class ApplyPreDownloadNum(val value: Int) : ReadBookIntent
     data class ApplyAudioCacheCleanTime(val value: Int) : ReadBookIntent
+    data class EditHttpTts(val engineId: Long? = null) : ReadBookIntent
+    data class DeleteHttpTts(val engineId: Long) : ReadBookIntent
+    data class SaveHttpTts(val httpTTS: HttpTTS) : ReadBookIntent
+    data class ApplySpeakEnginePerBook(val value: String?) : ReadBookIntent
+    data class ImportHttpTtsJson(val json: String) : ReadBookIntent
+    data object ExportAllHttpTts : ReadBookIntent
     data class SetReadAloudIgnoreAudioFocus(val value: Boolean) : ReadBookIntent
     data class SetReadAloudPauseOnPhoneCall(val value: Boolean) : ReadBookIntent
     data class SetReadAloudWakeLock(val value: Boolean) : ReadBookIntent
@@ -565,6 +575,9 @@ sealed interface ReadBookEffect {
     data object UnregisterNetworkListener : ReadBookEffect
     data object OpenBooksDirPicker : ReadBookEffect
     data object BackupNow : ReadBookEffect
+
+    // Export — Activity handles file writing
+    data class ExportJson(val json: String) : ReadBookEffect
 }
 
 @Immutable
@@ -588,6 +601,7 @@ sealed interface ReadBookSheet {
     data object BgTextConfig : ReadBookSheet
     data object ReadAloudConfig : ReadBookSheet
     data object SpeakEngineConfig : ReadBookSheet
+    data class HttpTtsEdit(val engineId: Long? = null) : ReadBookSheet
     data object PreDownloadConfig : ReadBookSheet
     data object AudioCacheCleanConfig : ReadBookSheet
     data object ClickActionConfig : ReadBookSheet
@@ -899,6 +913,9 @@ sealed interface ConfigUpdate {
     }
     data class StatusIconDark(val value: Boolean) : ConfigUpdate {
         override val actions = setOf(ConfigUpdateAction.ReloadContent)
+    }
+    data class StyleName(val value: String) : ConfigUpdate {
+        override val actions = emptySet<ConfigUpdateAction>()
     }
     data class MenuIconShowText(val value: Boolean) : ConfigUpdate {
         override val actions = emptySet<ConfigUpdateAction>()
