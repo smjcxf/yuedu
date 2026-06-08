@@ -1,5 +1,7 @@
 package io.legado.app.ui.config.themeConfig
 
+import android.os.Handler
+import android.os.Looper
 import androidx.appcompat.app.AppCompatDelegate
 import io.legado.app.constant.EventBus
 import io.legado.app.constant.PreferKey
@@ -52,7 +54,9 @@ object ThemeConfig {
 
     var appTheme by prefDelegate(PreferKey.appTheme, "0")
 
-    var themeMode by prefDelegate(PreferKey.themeMode, "0")
+    var themeMode by prefDelegate(PreferKey.themeMode, "0") {
+        Handler(Looper.getMainLooper()).post { initNightMode() }
+    }
 
     fun initNightMode() {
         when (appCtx.getPrefString(PreferKey.themeMode, "0")) {
