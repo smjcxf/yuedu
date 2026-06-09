@@ -19,7 +19,9 @@ import splitties.init.appCtx
 import java.io.File
 import java.io.InputStream
 
-class ReadStyleRepository {
+class ReadStyleRepository(
+    private val highlightRuleRepository: HighlightRuleRepository,
+) {
 
     val configFilePath: String =
         FileUtils.getPath(appCtx.filesDir, ReadBookConfig.configFileName)
@@ -118,7 +120,7 @@ class ReadStyleRepository {
         val exportDir = appCtx.externalCache.getFile("readConfigExport")
         exportDir.createFolderReplace()
         val exportConfig = config.copy(
-            regexColorRules = ArrayList(config.regexColorRules.map { it.copy() })
+            highlightRules = ArrayList(config.highlightRules.map { it.copy() })
         )
         val exportFiles = arrayListOf<File>()
 
@@ -196,6 +198,18 @@ class ReadStyleRepository {
         config.curTextColor()
         config.curTextAccentColor()
         config.curTextShadowColor()
+        if (config.highlightRules.isNotEmpty()) {
+            val targetConfigName = config.name.ifBlank { null }
+            val highlightRules = config.highlightRules.map { rule ->
+                if (targetConfigName.isNullOrBlank()) {
+                    rule.copy(configName = null)
+                } else {
+                    rule.copyWithNewId().copy(configName = listOf(targetConfigName).toJsonArray())
+                }
+            }
+            config.highlightRules = ArrayList(highlightRules)
+            highlightRuleRepository.saveForConfig(highlightRules, targetConfigName)
+        }
         return config
     }
 

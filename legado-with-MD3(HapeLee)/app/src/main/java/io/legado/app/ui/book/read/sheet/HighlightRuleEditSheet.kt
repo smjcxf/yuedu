@@ -1,14 +1,18 @@
 package io.legado.app.ui.book.read.sheet
 
+import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -20,6 +24,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -35,10 +40,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.legado.app.R
 import io.legado.app.data.entities.HighlightRule
-import io.legado.app.ui.book.read.config.HighlightRuleStore
+import io.legado.app.data.repository.configNames
+import io.legado.app.data.repository.toJsonArray
+import io.legado.app.help.config.ReadBookConfig
 import io.legado.app.ui.theme.LegadoTheme
 import io.legado.app.ui.widget.components.AppTextField
 import io.legado.app.ui.widget.components.SectionTitle
+import io.legado.app.ui.widget.components.card.NormalCard
 import io.legado.app.ui.widget.components.dialog.ColorPickerSheet
 import io.legado.app.ui.widget.components.modalBottomSheet.AppModalBottomSheet
 import io.legado.app.ui.widget.components.settingItem.TinyClickableSettingItem
@@ -47,6 +55,7 @@ import io.legado.app.ui.widget.components.settingItem.TinyDropdownSettingItem
 import io.legado.app.ui.widget.components.settingItem.TinySliderSettingItem
 import io.legado.app.ui.widget.components.settingItem.TinySwitchSettingItem
 import io.legado.app.ui.widget.components.text.AppText
+import kotlinx.coroutines.launch
 import splitties.init.appCtx
 import java.io.File
 
@@ -87,10 +96,21 @@ fun HighlightRuleEditSheet(
     var bgImageScale by remember { mutableFloatStateOf(initial.bgImageScale) }
     var hasBgImage by remember { mutableStateOf(initial.bgImage?.isNotBlank() == true) }
 
+    // Config binding state — empty set = global (applies to all configs)
+    val allConfigNames = remember { ReadBookConfig.configList.map { it.name }.filter { it.isNotBlank() } }
+    var configNames by remember {
+        mutableStateOf(initial.configName.orEmpty().configNames().toSet())
+    }
+
+    // Font state
+    var hasFont by remember { mutableStateOf(initial.fontPath?.isNotBlank() == true) }
+    var fontPath by remember { mutableStateOf(initial.fontPath.orEmpty()) }
+
     // Color picker state
     var showTextColorPicker by remember { mutableStateOf(false) }
     var showBgColorPicker by remember { mutableStateOf(false) }
     var showUnderlineColorPicker by remember { mutableStateOf(false) }
+    var showFontSelect by remember { mutableStateOf(false) }
 
     // Validation
     var patternError by remember { mutableStateOf<String?>(null) }
@@ -128,7 +148,7 @@ fun HighlightRuleEditSheet(
                     }
                 }
                 patternError = null
-                val sanitized = HighlightRuleStore.sanitizeRule(
+                onSave(
                     HighlightRule(
                         id = initial.id,
                         name = name,
@@ -147,9 +167,10 @@ fun HighlightRuleEditSheet(
                         bgImage = if (hasBgImage) bgImage.ifBlank { null } else null,
                         bgImageFit = bgImageFit,
                         bgImageScale = bgImageScale,
+                        configName = if (configNames.isEmpty()) null else configNames.toList().toJsonArray(),
+                        fontPath = if (hasFont) fontPath.ifBlank { null } else null,
                     )
                 )
-                onSave(sanitized)
             }) {
                 androidx.compose.material3.Icon(
                     Icons.Default.Done,
@@ -348,7 +369,74 @@ fun HighlightRuleEditSheet(
                 )
             }
 
-            // === Section 3: Preview ===
+            // === Section 3: Config Binding ===
+            if (allConfigNames.isNotEmpty()) {
+                SectionTitle("应用排版")
+                LazyRow(
+                    modifier = Modifier.padding(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // Global toggle
+                    item {
+                        val selected = configNames.isEmpty()
+                        val bg = if (selected) LegadoTheme.colorScheme.secondaryContainer
+                        else LegadoTheme.colorScheme.surfaceContainerLow
+                        val fg = if (selected) LegadoTheme.colorScheme.onSecondaryContainer
+                        else LegadoTheme.colorScheme.onSurfaceVariant
+                        NormalCard(
+                            onClick = { configNames = emptySet() },
+                            containerColor = bg,
+                            cornerRadius = 8.dp,
+                        ) {
+                            AppText(
+                                "全局",
+                                style = LegadoTheme.typography.labelMedium,
+                                color = fg,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                            )
+                        }
+                    }
+                    itemsIndexed(allConfigNames) { _, cn ->
+                        val selected = cn in configNames
+                        val bg = if (selected) LegadoTheme.colorScheme.secondaryContainer
+                        else LegadoTheme.colorScheme.surfaceContainerLow
+                        val fg = if (selected) LegadoTheme.colorScheme.onSecondaryContainer
+                        else LegadoTheme.colorScheme.onSurfaceVariant
+                        NormalCard(
+                            onClick = {
+                                configNames = if (selected) configNames - cn
+                                else configNames + cn
+                            },
+                            containerColor = bg,
+                            cornerRadius = 8.dp,
+                        ) {
+                            AppText(
+                                cn,
+                                style = LegadoTheme.typography.labelMedium,
+                                color = fg,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                            )
+                        }
+                    }
+                }
+            }
+
+            // === Section 4: Font ===
+            SectionTitle("字体替换")
+            TinySwitchSettingItem(
+                title = "自定义字体",
+                checked = hasFont,
+                onCheckedChange = { hasFont = it },
+            )
+            if (hasFont) {
+                TinyClickableSettingItem(
+                    title = stringResource(R.string.select_font),
+                    description = fontPath.ifBlank { null }?.let { File(it).name },
+                    onClick = { showFontSelect = true },
+                )
+            }
+
+            // === Section 5: Preview ===
             SectionTitle(stringResource(R.string.preview_effect))
 
             AppTextField(
@@ -406,6 +494,32 @@ fun HighlightRuleEditSheet(
                 underlineColor = color
                 showUnderlineColorPicker = false
             },
+        )
+    }
+
+    // Font selector
+    if (showFontSelect) {
+        val readSettingsRepository: io.legado.app.data.repository.ReadSettingsRepository =
+            org.koin.compose.koinInject()
+        val scope = rememberCoroutineScope()
+        val fontFolderLauncher = rememberLauncherForActivityResult(
+            ActivityResultContracts.OpenDocumentTree()
+        ) { uri ->
+            uri?.let {
+                context.contentResolver.takePersistableUriPermission(
+                    it, Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+                scope.launch {
+                    readSettingsRepository.setFontFolder(it.toString())
+                }
+            }
+        }
+        FontSelectSheet(
+            show = true,
+            onDismissRequest = { showFontSelect = false },
+            onSelectFont = { fontPath = it; showFontSelect = false },
+            onSelectSystemTypeface = { fontPath = ""; showFontSelect = false },
+            onOpenFolderPicker = { fontFolderLauncher.launch(null) },
         )
     }
 }

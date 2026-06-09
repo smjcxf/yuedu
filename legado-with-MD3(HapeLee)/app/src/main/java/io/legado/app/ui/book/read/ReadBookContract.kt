@@ -9,6 +9,8 @@ import io.legado.app.data.entities.Book
 import io.legado.app.data.entities.BookChapter
 import io.legado.app.data.entities.BookProgress
 import io.legado.app.data.entities.BookSource
+import io.legado.app.data.entities.Bookmark
+import io.legado.app.data.entities.HighlightRule
 import io.legado.app.data.entities.HttpTTS
 import io.legado.app.ui.book.read.page.entities.TextChapter
 import io.legado.app.ui.book.read.page.entities.TextPage
@@ -153,10 +155,19 @@ data class ReadBookUiState(
     val styleConfig: ReadBookStyleConfig = ReadBookStyleConfig(),
     // Menu config (from ReadBookConfig via repository)
     val menuConfig: ReadMenuConfig = ReadMenuConfig(),
+    val highlightRuleConfig: HighlightRuleConfigUiState = HighlightRuleConfigUiState(),
 ) {
     val menuVisible: Boolean
         get() = menuState.visible
 }
+
+@Stable
+data class HighlightRuleConfigUiState(
+    val rules: ImmutableList<HighlightRule> = persistentListOf(),
+    val editingRule: HighlightRule? = null,
+    val showNewRule: Boolean = false,
+    val deleteRule: HighlightRule? = null,
+)
 
 @Stable
 data class ReadMenuConfig(
@@ -191,6 +202,7 @@ data class ReadMenuConfig(
 data class ReadBookTtsEngineItem(
     val title: String,
     val value: String?,
+    val loginUrl: String? = null,
 )
 
 @Immutable
@@ -259,6 +271,7 @@ sealed interface ReadBookIntent {
     data object ToggleTranslation : ReadBookIntent
 
     // Change source
+    data class ChangeSourceBook(val book: Book) : ReadBookIntent
     data class ChangeSource(val book: Book, val toc: List<BookChapter>) : ReadBookIntent
     data class AddSourceAsNewBook(val book: Book, val toc: List<BookChapter>) : ReadBookIntent
 
@@ -308,6 +321,8 @@ sealed interface ReadBookIntent {
     data class OpenSourceEditByUrl(val sourceUrl: String) : ReadBookIntent
     data object OpenBookInfo : ReadBookIntent
     data object OpenChapterList : ReadBookIntent
+    data object OpenChapterUrl : ReadBookIntent
+    data object ToggleReadUrlInBrowser : ReadBookIntent
 
     // Content edit
     data object LoadContentEdit : ReadBookIntent
@@ -377,6 +392,16 @@ sealed interface ReadBookIntent {
     // Typed config mutation — single entry point for all ReadBookConfig changes
     data class UpdateConfig(val update: ConfigUpdate) : ReadBookIntent
 
+    // Highlight rules
+    data object AddHighlightRule : ReadBookIntent
+    data class EditHighlightRule(val rule: HighlightRule) : ReadBookIntent
+    data class ToggleHighlightRule(val rule: HighlightRule, val enabled: Boolean) : ReadBookIntent
+    data class SaveHighlightRule(val rule: HighlightRule) : ReadBookIntent
+    data object DismissHighlightRuleEdit : ReadBookIntent
+    data class RequestDeleteHighlightRule(val rule: HighlightRule) : ReadBookIntent
+    data object ConfirmDeleteHighlightRule : ReadBookIntent
+    data object DismissDeleteHighlightRule : ReadBookIntent
+
     // Icon picker — file IO handled by ViewModel
     data class SaveMenuCustomIcon(val id: String, val uri: Uri) : ReadBookIntent
     data class SaveTitleBarCustomIcon(val id: String, val uri: Uri) : ReadBookIntent
@@ -394,7 +419,7 @@ sealed interface ReadBookIntent {
     // Default font picker (needs Activity for AlertDialog)
     // Text action menu (moved from Activity)
     data class TextActionAloud(val text: String) : ReadBookIntent
-    data class TextActionBookmark(val text: String) : ReadBookIntent
+    data class TextActionBookmark(val bookmark: Bookmark) : ReadBookIntent
     data class TextActionReplace(val text: String) : ReadBookIntent
     data class TextActionSearchContent(val text: String) : ReadBookIntent
     data class TextActionDict(val text: String) : ReadBookIntent
@@ -422,6 +447,7 @@ sealed interface ReadBookIntent {
     data class DeleteHttpTts(val engineId: Long) : ReadBookIntent
     data class SaveHttpTts(val httpTTS: HttpTTS) : ReadBookIntent
     data class ApplySpeakEnginePerBook(val value: String?) : ReadBookIntent
+    data class OpenHttpTtsLogin(val engineId: Long) : ReadBookIntent
     data class ImportHttpTtsJson(val json: String) : ReadBookIntent
     data object ExportAllHttpTts : ReadBookIntent
     data class SetReadAloudIgnoreAudioFocus(val value: Boolean) : ReadBookIntent
@@ -519,6 +545,7 @@ sealed interface ReadBookEffect {
         val sourceOrigin: String?,
         val sourceName: String?,
         val sourceType: Int?,
+        val html: String? = null,
     ) : ReadBookEffect
 
     // Menu actions that need Activity
@@ -558,6 +585,7 @@ sealed interface ReadBookEffect {
     data class OpenMenuCustomIconPicker(val id: String) : ReadBookEffect
     data class OpenTitleBarCustomIconPicker(val id: String) : ReadBookEffect
     data object OpenSystemTtsSettings : ReadBookEffect
+    data class OpenHttpTtsLogin(val engineId: Long) : ReadBookEffect
 
     // Day/night toggle
     data object ToggleDayNight : ReadBookEffect
@@ -1023,11 +1051,6 @@ sealed interface ConfigUpdate {
     }
     data class ShowReadTitleAddition(val value: Boolean) : ConfigUpdate {
         override val actions = emptySet<ConfigUpdateAction>()
-    }
-
-    // --- Highlight rules ---
-    data class HighlightRules(val rules: List<io.legado.app.data.entities.HighlightRule>) : ConfigUpdate {
-        override val actions = setOf(ConfigUpdateAction.UpdateChapterStyle, ConfigUpdateAction.ReloadContent)
     }
 
     // --- Auto read ---

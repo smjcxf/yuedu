@@ -6,13 +6,14 @@ import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.Drawable
 import androidx.annotation.Keep
+import androidx.compose.runtime.State
 import androidx.core.graphics.toColorInt
 import io.legado.app.R
 import io.legado.app.constant.PageAnim
 import io.legado.app.constant.PreferKey
 import io.legado.app.constant.ReadMenuBlurMode
 import io.legado.app.constant.ReadMenuBlurStyle
-import androidx.compose.runtime.State
+import io.legado.app.data.entities.HighlightRule
 import io.legado.app.data.repository.ReadStyleRepository
 import io.legado.app.help.DefaultData
 import io.legado.app.help.coroutine.Coroutine
@@ -22,6 +23,7 @@ import io.legado.app.utils.GSON
 import io.legado.app.utils.fromJsonObject
 import io.legado.app.utils.getMeanColor
 import io.legado.app.utils.hexString
+import org.koin.core.context.GlobalContext
 import splitties.init.appCtx
 import java.io.InputStream
 import kotlin.properties.ReadWriteProperty
@@ -33,7 +35,8 @@ import kotlin.reflect.KProperty
 @Suppress("ConstPropertyName")
 @Keep
 object ReadBookConfig {
-    private val readStyleRepository = ReadStyleRepository()
+    private val readStyleRepository: ReadStyleRepository
+        get() = GlobalContext.get().get()
 
     // region prefDelegate helpers
 
@@ -329,11 +332,6 @@ object ReadBookConfig {
     val resolvedMenuBorderColor: Int
         get() = if (ReadStyleResolver.isNightTheme()) readMenuBorderColorNight else readMenuBorderColor
 
-    val regexColorRules: ArrayList<RegexColorRule> get() = durConfig.regexColorRules
-
-    fun saveRegexColorRules() {
-        save()
-    }
 
     val config get() = if (shareLayout) shareConfig else durConfig
 
@@ -776,7 +774,7 @@ object ReadBookConfig {
     // endregion
 
     fun getExportConfig(): Config {
-        val exportConfig = durConfig.copy(regexColorRules = ArrayList(durConfig.regexColorRules.map { it.copy() }))
+        val exportConfig = durConfig.copy(highlightRules = arrayListOf())
         if (shareLayout) {
             exportConfig.textFont = shareConfig.textFont
             exportConfig.titleFont = shareConfig.titleFont
@@ -963,7 +961,7 @@ object ReadBookConfig {
         var menuBottomHorizontalMargin: Int = 0,
         @Transient
         var menuBottomBottomMargin: Int = 0,
-        var regexColorRules: ArrayList<RegexColorRule> = arrayListOf()
+        var highlightRules: ArrayList<HighlightRule> = arrayListOf()
     ) {
 
         @Transient
@@ -1082,7 +1080,7 @@ object ReadBookConfig {
             "tipDividerColor" to tipDividerColor,
             "headerMode" to headerMode,
             "footerMode" to footerMode,
-            "regexColorRules" to regexColorRules.map { mapOf("name" to it.name, "pattern" to it.pattern, "color" to it.color, "fontPath" to it.fontPath) }
+            "highlightRules" to highlightRules.map { mapOf("id" to it.id, "name" to it.name, "pattern" to it.pattern, "sampleText" to it.sampleText, "targetScope" to it.targetScope, "enabled" to it.enabled, "position" to it.position, "textColor" to it.textColor, "bgColor" to it.bgColor, "underlineMode" to it.underlineMode, "underlineColor" to it.underlineColor, "underlineWidth" to it.underlineWidth, "underlineOffset" to it.underlineOffset, "underlineSvgPath" to it.underlineSvgPath, "bgImage" to it.bgImage, "bgImageFit" to it.bgImageFit, "bgImageScale" to it.bgImageScale, "configName" to it.configName, "fontPath" to it.fontPath) }
         )
 
         fun getBgPath(bgIndex: Int): String? {

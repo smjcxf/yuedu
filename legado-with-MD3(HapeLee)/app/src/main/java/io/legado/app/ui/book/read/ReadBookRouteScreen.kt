@@ -46,7 +46,6 @@ import io.legado.app.ui.replace.ReplaceEditRoute
 import io.legado.app.ui.replace.ReplaceRuleActivity
 import io.legado.app.utils.StartActivityContract
 import io.legado.app.utils.takePersistablePermissionSafely
-import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.onSubscription
 import kotlinx.coroutines.launch
 
@@ -233,10 +232,9 @@ fun ReadBookRouteScreen(
     // ── Effect collection: route handles launcher effects, rest goes to bridge ──
 
     LaunchedEffect(viewModel) {
-        val effectsSubscribed = CompletableDeferred<Unit>()
         launch {
             viewModel.effects
-                .onSubscription { effectsSubscribed.complete(Unit) }
+                .onSubscription { onEffectsReady() }
                 .collect { effect ->
                     try {
                         when (effect) {
@@ -262,6 +260,14 @@ fun ReadBookRouteScreen(
                                     }
                                 )
                             }
+                            is ReadBookEffect.OpenHttpTtsLogin -> {
+                                context.startActivity(
+                                    Intent(context, SourceLoginActivity::class.java).apply {
+                                        putExtra("type", "httpTts")
+                                        putExtra("key", effect.engineId.toString())
+                                    }
+                                )
+                            }
                             is ReadBookEffect.OpenWebView -> {
                                 context.startActivity(
                                     Intent(context, WebViewActivity::class.java).apply {
@@ -270,6 +276,7 @@ fun ReadBookRouteScreen(
                                         putExtra("sourceOrigin", effect.sourceOrigin)
                                         putExtra("sourceName", effect.sourceName)
                                         effect.sourceType?.let { putExtra("sourceType", it) }
+                                        effect.html?.let { putExtra("html", it) }
                                     }
                                 )
                             }
@@ -355,8 +362,6 @@ fun ReadBookRouteScreen(
                     }
                 }
         }
-        effectsSubscribed.await()
-        onEffectsReady()
     }
 
     // ── System UI sync ────────────────────────────────────────────────

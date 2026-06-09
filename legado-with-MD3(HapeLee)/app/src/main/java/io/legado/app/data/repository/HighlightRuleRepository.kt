@@ -1,21 +1,25 @@
-package io.legado.app.ui.book.read.config
+package io.legado.app.data.repository
 
+import android.content.Context
 import io.legado.app.constant.PreferKey
 import io.legado.app.data.appDb
+import io.legado.app.data.dao.HighlightRuleDao
 import io.legado.app.data.entities.HighlightRule
-import io.legado.app.help.config.ReadBookConfig
 import io.legado.app.utils.GSON
 import io.legado.app.utils.fromJsonArray
 import io.legado.app.utils.getPrefBoolean
-import io.legado.app.utils.getPrefString
 import io.legado.app.utils.putPrefBoolean
-import io.legado.app.utils.putPrefString
 import splitties.init.appCtx
 import java.io.File
 
-object HighlightRuleStore {
+class HighlightRuleRepository(
+    private val dao: HighlightRuleDao = appDb.highlightRuleDao,
+    private val context: Context = appCtx,
+) {
 
-    const val backupFileName = "highlightRule.json"
+    companion object {
+        const val backupFileName = "highlightRule.json"
+    }
 
     data class BackupData(
         val rules: List<HighlightRule> = emptyList(),
@@ -24,46 +28,96 @@ object HighlightRuleStore {
         val bracketNoteEnabled: Boolean = true,
     )
 
-    private val dao get() = appDb.highlightRuleDao
-
-    fun load(): List<HighlightRule> {
-        migrateFromPrefsIfNeeded()
-        return dao.getAll()
+    fun load(configName: String): List<HighlightRule> {
+        return dao.getAll().filter { it.matchesConfig(configName) }
     }
 
-    fun loadEnabled(): List<HighlightRule> {
-        migrateFromPrefsIfNeeded()
-        return dao.getEnabled()
+    fun loadEnabled(configName: String): List<HighlightRule> {
+        return dao.getEnabled().filter { it.matchesConfig(configName) }
     }
 
-    fun save(rules: List<HighlightRule>) {
+    /**
+     * 保存指定排版的规则。
+     * 仅替换当前排版绑定的规则，不影响其他排版的规则。
+     */
+    fun save(configName: String, rules: List<HighlightRule>) {
+        saveForConfig(rules, configName.ifBlank { null })
+    }
+
+    fun saveForConfig(rules: List<HighlightRule>, configName: String?) {
         val sanitized = rules.mapIndexed { index, rule ->
             sanitizeRule(rule).copy(position = index)
         }
-        dao.replaceAll(sanitized)
-        cleanupUnusedBgImages(sanitized)
-    }
-
-    fun update(rule: HighlightRule) {
-        dao.update(sanitizeRule(rule))
+        if (configName.isNullOrBlank()) {
+            // 全局规则：只替换 configName 为 null 的规则
+            dao.replaceGlobal(sanitized)
+        } else {
+            // 按排版保存：只处理绑定到当前排版的规则，不动全局规则
+            val allRules = dao.getAll()
+            // 旧的绑定到当前排版的规则（不含全局规则）
+            val oldBound = allRules.filter {
+                !it.configName.isNullOrBlank() && it.matchesConfig(configName)
+            }
+            val newIds = sanitized.map { it.id }.toSet()
+            // 被移除的旧规则：从 configName 列表中去掉当前排版
+            // 未绑定任何排版时删除，避免留下无法在管理界面看到的规则
+            for (old in oldBound) {
+                if (old.id !in newIds) {
+                    val remaining =
+                        old.configName.orEmpty().configNames().filter { it != configName }
+                    if (remaining.isEmpty()) {
+                        dao.delete(old)
+                    } else {
+                        dao.update(old.copy(configName = remaining.toJsonArray()))
+                    }
+                }
+            }
+            // 插入所有规则（全局规则也一起，否则会被 replaceGlobal 删掉）
+            dao.insertAll(sanitized)
+        }
+        cleanupUnusedBgImages()
     }
 
     fun delete(rule: HighlightRule) {
         dao.delete(rule)
+        cleanupUnusedBgImages()
     }
 
-    fun reset(): List<HighlightRule> {
+    fun removeConfigBinding(configName: String) {
+        if (configName.isBlank()) return
+        dao.getAll().forEach { rule ->
+            val names = rule.configName.orEmpty().configNames()
+            if (configName in names) {
+                val remaining = names.filter { it != configName }
+                val updatedConfigName = remaining.takeIf { it.isNotEmpty() }?.toJsonArray()
+                dao.update(rule.copy(configName = updatedConfigName))
+            }
+        }
+    }
+
+    fun reset(configName: String): List<HighlightRule> {
         val defaults = createDefaultRules()
-        dao.replaceAll(defaults)
-        return defaults
+        val rules = if (configName.isBlank()) {
+            defaults
+        } else {
+            defaults.map {
+                it.copyWithNewId().copy(configName = listOf(configName).toJsonArray())
+            }
+        }
+        if (configName.isBlank()) {
+            dao.replaceGlobal(rules)
+        } else {
+            saveForConfig(rules, configName)
+        }
+        return rules
     }
 
-    fun createBackupData(): BackupData {
+    fun createBackupData(configName: String): BackupData {
         return BackupData(
-            rules = load(),
-            dialogEnabled = appCtx.getPrefBoolean(PreferKey.highlightRuleDialog, true),
-            bookTitleEnabled = appCtx.getPrefBoolean(PreferKey.highlightRuleBookTitle, true),
-            bracketNoteEnabled = appCtx.getPrefBoolean(PreferKey.highlightRuleBracketNote, true),
+            rules = load(configName),
+            dialogEnabled = context.getPrefBoolean(PreferKey.highlightRuleDialog, true),
+            bookTitleEnabled = context.getPrefBoolean(PreferKey.highlightRuleBookTitle, true),
+            bracketNoteEnabled = context.getPrefBoolean(PreferKey.highlightRuleBracketNote, true),
         )
     }
 
@@ -73,68 +127,12 @@ object HighlightRuleStore {
             val restoredBgImage = restoreRuleBgImage(backupRootPath, safeRule.bgImage)
             safeRule.copy(bgImage = restoredBgImage)
         }
-        save(rules)
-        appCtx.putPrefBoolean(PreferKey.highlightRuleDialog, backupData.dialogEnabled)
-        appCtx.putPrefBoolean(PreferKey.highlightRuleBookTitle, backupData.bookTitleEnabled)
-        appCtx.putPrefBoolean(PreferKey.highlightRuleBracketNote, backupData.bracketNoteEnabled)
-    }
-
-    /**
-     * 从旧版 SharedPreferences 迁移数据（一次性）
-     */
-    private fun migrateFromPrefsIfNeeded() {
-        if (dao.count() > 0) return
-        // 尝试从 SharedPreferences 读取旧数据
-        val stored = appCtx.getPrefString(PreferKey.highlightRuleItems)
-        if (!stored.isNullOrBlank()) {
-            val oldRules = GSON.fromJsonArray<LegacyHighlightRule>(stored).getOrNull()
-            if (!oldRules.isNullOrEmpty()) {
-                val migrated = oldRules.mapIndexed { index, old ->
-                    sanitizeRule(
-                        HighlightRule(
-                            id = old.id,
-                            name = old.name,
-                            pattern = old.pattern,
-                            sampleText = old.sampleText,
-                            targetScope = old.targetScope,
-                            enabled = old.enabled,
-                            position = index,
-                            textColor = old.textColor,
-                            underlineMode = old.underlineMode,
-                            underlineColor = old.underlineColor,
-                            underlineWidth = old.underlineWidth,
-                            underlineOffset = old.underlineOffset,
-                            underlineSvgPath = old.underlineSvgPath,
-                            bgImage = old.bgImage,
-                            bgImageFit = old.bgImageFit,
-                            bgImageScale = old.bgImageScale,
-                        )
-                    ).copy(position = index)
-                }
-                dao.insertAll(migrated)
-                // 清除旧 SharedPreferences 数据
-                appCtx.putPrefString(PreferKey.highlightRuleItems, null)
-                return
-            }
-        }
-        // 尝试从旧版 RegexColorRule 迁移
-        migrateFromRegexColorRules()
-    }
-
-    private fun migrateFromRegexColorRules() {
-        val oldRules = ReadBookConfig.regexColorRules
-        if (oldRules.isEmpty()) return
-        val migrated = oldRules.mapIndexed { index, old ->
-            HighlightRule(
-                name = old.name,
-                pattern = old.pattern,
-                position = index,
-                textColor = old.color,
-            )
-        }
-        dao.insertAll(migrated)
-        oldRules.clear()
-        ReadBookConfig.save()
+        // 备份恢复是全量替换
+        dao.replaceAll(rules)
+        cleanupUnusedBgImages()
+        context.putPrefBoolean(PreferKey.highlightRuleDialog, backupData.dialogEnabled)
+        context.putPrefBoolean(PreferKey.highlightRuleBookTitle, backupData.bookTitleEnabled)
+        context.putPrefBoolean(PreferKey.highlightRuleBracketNote, backupData.bracketNoteEnabled)
     }
 
     fun sanitizeRule(rule: HighlightRule): HighlightRule {
@@ -142,26 +140,36 @@ object HighlightRuleStore {
         val pattern = runCatching { rule.pattern }.getOrNull().orEmpty()
         val sampleText = runCatching { rule.sampleText }.getOrNull().orEmpty()
         val id = runCatching { rule.id }.getOrNull().orEmpty().ifBlank {
-            "${System.currentTimeMillis()}_${listOf(name, pattern).joinToString("|").hashCode().toUInt().toString(16)}"
+            "${System.currentTimeMillis()}_${
+                listOf(name, pattern).joinToString("|").hashCode().toUInt().toString(16)
+            }"
         }
         return HighlightRule(
             id = id,
             name = name,
             pattern = pattern,
             sampleText = sampleText,
-            targetScope = normalizeTargetScope(runCatching { rule.targetScope }.getOrDefault(HighlightRule.TARGET_ALL)),
+            targetScope = normalizeTargetScope(
+                runCatching { rule.targetScope }.getOrDefault(
+                    HighlightRule.TARGET_ALL
+                )
+            ),
             enabled = runCatching { rule.enabled }.getOrDefault(true),
             position = runCatching { rule.position }.getOrDefault(0),
             textColor = runCatching { rule.textColor }.getOrNull(),
             bgColor = runCatching { rule.bgColor }.getOrNull(),
             underlineMode = runCatching { rule.underlineMode }.getOrDefault(0).coerceIn(0, 5),
             underlineColor = runCatching { rule.underlineColor }.getOrNull(),
-            underlineWidth = runCatching { rule.underlineWidth }.getOrDefault(1f).coerceIn(0.1f, 10f),
-            underlineOffset = runCatching { rule.underlineOffset }.getOrDefault(2f).coerceIn(0f, 20f),
+            underlineWidth = runCatching { rule.underlineWidth }.getOrDefault(1f)
+                .coerceIn(0.1f, 10f),
+            underlineOffset = runCatching { rule.underlineOffset }.getOrDefault(2f)
+                .coerceIn(0f, 20f),
             underlineSvgPath = runCatching { rule.underlineSvgPath }.getOrNull(),
             bgImage = runCatching { rule.bgImage }.getOrNull()?.takeIf { it.isNotBlank() },
             bgImageFit = runCatching { rule.bgImageFit }.getOrDefault(0).coerceIn(0, 2),
             bgImageScale = runCatching { rule.bgImageScale }.getOrDefault(1f).coerceIn(0.1f, 5f),
+            configName = runCatching { rule.configName }.getOrNull()?.takeIf { it.isNotBlank() },
+            fontPath = runCatching { rule.fontPath }.getOrNull()?.takeIf { it.isNotBlank() },
         )
     }
 
@@ -170,12 +178,13 @@ object HighlightRuleStore {
             HighlightRule.TARGET_ALL,
             HighlightRule.TARGET_TITLE,
             HighlightRule.TARGET_BODY -> value
+
             else -> fallback
         }
     }
 
     fun createDefaultRules(): List<HighlightRule> {
-        val ctx = appCtx
+        val ctx = context
         return listOf(
             HighlightRule(
                 id = "dialog_default",
@@ -304,11 +313,12 @@ object HighlightRuleStore {
         )
     }
 
-    private fun cleanupUnusedBgImages(rules: List<HighlightRule>) {
-        val usedPaths = rules.mapNotNull { it.bgImage }
+    private fun cleanupUnusedBgImages() {
+        val allRules = dao.getAll()
+        val usedPaths = allRules.mapNotNull { it.bgImage }
             .filter { it.isNotBlank() && !it.startsWith("assets://") }
             .toSet()
-        val dir = File(appCtx.filesDir, "bg_images")
+        val dir = File(context.filesDir, "bg_images")
         if (!dir.exists()) return
         dir.listFiles()?.forEach { file ->
             if (file.absolutePath !in usedPaths) {
@@ -324,7 +334,7 @@ object HighlightRuleStore {
         val backupFile = File(rootPath, "highlightRuleBg${File.separator}${File(path).name}")
             .takeIf { it.exists() && it.isFile }
             ?: return path
-        val dir = File(appCtx.filesDir, "bg_images")
+        val dir = File(context.filesDir, "bg_images")
         if (!dir.exists()) dir.mkdirs()
         val targetFile = File(dir, backupFile.name)
         if (!targetFile.exists() || targetFile.length() != backupFile.length()) {
@@ -333,24 +343,31 @@ object HighlightRuleStore {
         return targetFile.absolutePath
     }
 
+    // region configName helpers
+
     /**
-     * 旧版 SharedPreferences 数据结构（用于迁移）
+     * 判断规则是否适用于指定排版。
+     * configName 为 null 表示全局规则（适用于所有排版）。
+     * configName 为 JSON 数组字符串，如 '["日间","夜间"]'。
      */
-    private data class LegacyHighlightRule(
-        val id: String = "",
-        val name: String = "",
-        val pattern: String = "",
-        val sampleText: String = "",
-        val targetScope: Int = 0,
-        val enabled: Boolean = true,
-        val textColor: Int? = null,
-        val underlineMode: Int = 0,
-        val underlineColor: Int? = null,
-        val underlineWidth: Float = 1f,
-        val underlineOffset: Float = 2f,
-        val underlineSvgPath: String? = null,
-        val bgImage: String? = null,
-        val bgImageFit: Int = 0,
-        val bgImageScale: Float = 1f,
-    )
+    private fun HighlightRule.matchesConfig(configName: String): Boolean {
+        val cn = this.configName
+        if (cn.isNullOrBlank()) return true // 全局规则
+        return cn.configNames().contains(configName)
+    }
+
+    /**
+     * 解析 configName JSON 数组为列表。
+     */
+    // endregion
+}
+
+fun String.configNames(): List<String> {
+    return runCatching {
+        GSON.fromJsonArray<String>(this).getOrNull() ?: emptyList()
+    }.getOrElse { emptyList() }
+}
+
+fun List<String>.toJsonArray(): String {
+    return GSON.toJson(this)
 }
