@@ -425,7 +425,8 @@ sealed interface ReadBookIntent {
     data class TextActionDict(val text: String) : ReadBookIntent
 
     // Screen / selection config
-    data object KeepLightChanged : ReadBookIntent
+    data class KeepLightChanged(val value: String) : ReadBookIntent
+    data class SetOrientation(val value: String) : ReadBookIntent
     data class TextSelectAbleChanged(val enabled: Boolean) : ReadBookIntent
 
     // Media / TTS
@@ -449,7 +450,10 @@ sealed interface ReadBookIntent {
     data class ApplySpeakEnginePerBook(val value: String?) : ReadBookIntent
     data class OpenHttpTtsLogin(val engineId: Long) : ReadBookIntent
     data class ImportHttpTtsJson(val json: String) : ReadBookIntent
+    data object ImportHttpTtsFile : ReadBookIntent
+    data class ImportHttpTtsFileSelected(val uri: Uri) : ReadBookIntent
     data object ExportAllHttpTts : ReadBookIntent
+    data class ExportHttpTtsToFile(val uri: Uri) : ReadBookIntent
     data class SetReadAloudIgnoreAudioFocus(val value: Boolean) : ReadBookIntent
     data class SetReadAloudPauseOnPhoneCall(val value: Boolean) : ReadBookIntent
     data class SetReadAloudWakeLock(val value: Boolean) : ReadBookIntent
@@ -585,6 +589,8 @@ sealed interface ReadBookEffect {
     data class OpenMenuCustomIconPicker(val id: String) : ReadBookEffect
     data class OpenTitleBarCustomIconPicker(val id: String) : ReadBookEffect
     data object OpenSystemTtsSettings : ReadBookEffect
+    data object OpenHttpTtsImportPicker : ReadBookEffect
+    data object OpenHttpTtsExportPicker : ReadBookEffect
     data class OpenHttpTtsLogin(val engineId: Long) : ReadBookEffect
 
     // Day/night toggle

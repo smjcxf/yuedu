@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.provider.OpenableColumns
+import android.speech.tts.TextToSpeech
 import androidx.lifecycle.viewModelScope
 import io.legado.app.BuildConfig
 import io.legado.app.R
@@ -34,6 +35,7 @@ import io.legado.app.domain.usecase.GetReadingProgressUseCase
 import io.legado.app.domain.usecase.UploadReadingProgressUseCase
 import io.legado.app.exception.NoStackTraceException
 import io.legado.app.help.DefaultData
+import io.legado.app.ui.config.readConfig.ReadConfig
 import io.legado.app.help.book.BookHelp
 import io.legado.app.help.book.ContentProcessor
 import io.legado.app.help.book.isEpub
@@ -132,6 +134,13 @@ class ReadBookViewModel(
 
     private val _effects = MutableSharedFlow<ReadBookEffect>(extraBufferCapacity = 16)
     val effects = _effects.asSharedFlow()
+
+    private val sysEngines: List<TextToSpeech.EngineInfo> by lazy {
+        val tts = TextToSpeech(context, null)
+        val engines = tts.engines
+        tts.shutdown()
+        engines
+    }
 
     private val _readPreferences = MutableStateFlow(ReadPreferences())
     val readPreferences = _readPreferences.asStateFlow()
@@ -573,7 +582,15 @@ class ReadBookViewModel(
             is ReadBookIntent.SaveMenuButtonConfig -> saveMenuButtonConfig(intent.items)
             is ReadBookIntent.SaveTitleBarButtonConfig -> saveTitleBarButtonConfig(intent.items)
 
-            is ReadBookIntent.KeepLightChanged -> _effects.tryEmit(ReadBookEffect.UpScreenTimeOut)
+            is ReadBookIntent.KeepLightChanged -> {
+                ReadConfig.keepLight = intent.value
+                _readPreferences.update { it.copy(keepLight = intent.value) }
+                _effects.tryEmit(ReadBookEffect.UpScreenTimeOut)
+            }
+            is ReadBookIntent.SetOrientation -> {
+                ReadConfig.screenOrientation = intent.value
+                _effects.tryEmit(ReadBookEffect.SetOrientation)
+            }
             is ReadBookIntent.TextSelectAbleChanged -> _effects.tryEmit(
                 ReadBookEffect.UpTextSelectAble(
                     intent.enabled
@@ -737,10 +754,39 @@ class ReadBookViewModel(
             }
 
             is ReadBookIntent.ExportAllHttpTts -> {
+                _effects.tryEmit(ReadBookEffect.OpenHttpTtsExportPicker)
+            }
+
+            is ReadBookIntent.ExportHttpTtsToFile -> {
                 execute {
-                    GSON.toJson(appDb.httpTTSDao.all)
-                }.onSuccess { json ->
-                    _effects.tryEmit(ReadBookEffect.ExportJson(json))
+                    val json = GSON.toJson(appDb.httpTTSDao.all)
+                    context.contentResolver.openOutputStream(intent.uri)?.use { os ->
+                        os.write(json.toByteArray())
+                    }
+                }.onSuccess {
+                    _effects.tryEmit(ReadBookEffect.ShowToast(context.getString(R.string.export_success)))
+                }
+            }
+
+            is ReadBookIntent.ImportHttpTtsFile -> {
+                _effects.tryEmit(ReadBookEffect.OpenHttpTtsImportPicker)
+            }
+
+            is ReadBookIntent.ImportHttpTtsFileSelected -> {
+                execute {
+                    val text = context.contentResolver.openInputStream(intent.uri)
+                        ?.use { it.reader().readText() }
+                    if (!text.isNullOrBlank()) {
+                        HttpTTS.fromJsonArray(text).getOrDefault(arrayListOf())
+                    } else arrayListOf()
+                }.onSuccess { list ->
+                    if (list.isNotEmpty()) {
+                        execute {
+                            appDb.httpTTSDao.insert(*list.toTypedArray())
+                        }.onSuccess {
+                            loadTtsEngineItems()
+                        }
+                    }
                 }
             }
 
@@ -1032,6 +1078,14 @@ class ReadBookViewModel(
         execute {
             buildList {
                 add(ReadBookTtsEngineItem(context.getString(R.string.system_tts), null))
+                sysEngines.forEach { engine ->
+                    add(
+                        ReadBookTtsEngineItem(
+                            title = engine.label,
+                            value = GSON.toJson(SelectItem(engine.label, engine.name)),
+                        )
+                    )
+                }
                 appDb.httpTTSDao.all.forEach { httpTts ->
                     add(
                         ReadBookTtsEngineItem(
@@ -2486,10 +2540,26 @@ class ReadBookViewModel(
             }
             is ConfigUpdate.FloatingBottomBar -> {
                 ReadBookConfig.readMenuFloatingBottomBar = update.value
+                val needsBlurFallback = !update.value &&
+                        ReadBookConfig.readMenuBottomBarBlurMode == ReadMenuBlurMode.LiquidGlass
+                if (needsBlurFallback) {
+                    ReadBookConfig.readMenuBottomBarBlurMode = ReadMenuBlurMode.Haze
+                }
                 viewModelScope.launch {
                     readSettingsRepository.setReadMenuFloatingBottomBar(update.value)
+                    if (needsBlurFallback) {
+                        readSettingsRepository.setReadMenuBottomBarBlurMode(ReadMenuBlurMode.Haze)
+                    }
                 }
-                _uiState.update { it.copy(menuConfig = it.menuConfig.copy(readMenuFloatingBottomBar = update.value)) }
+                _uiState.update {
+                    it.copy(
+                        menuConfig = it.menuConfig.copy(
+                            readMenuFloatingBottomBar = update.value,
+                            readMenuBottomBarBlurMode = if (needsBlurFallback) ReadMenuBlurMode.Haze
+                            else it.menuConfig.readMenuBottomBarBlurMode,
+                        )
+                    )
+                }
             }
             is ConfigUpdate.MenuTopBarBlurMode -> {
                 val mode = update.value.coerceIn(0, 2).let {
