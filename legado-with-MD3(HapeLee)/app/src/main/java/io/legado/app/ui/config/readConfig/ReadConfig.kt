@@ -241,4 +241,14 @@ object ReadConfig {
         PreferKey.ttsSpeechRate,
         5
     )
+
+    var ttsEngine by prefDelegate<String?>(
+        PreferKey.ttsEngine,
+        null
+    )
+
+    var chineseConverterType by prefDelegate(
+        PreferKey.chineseConverterType,
+        0
+    )
 }
