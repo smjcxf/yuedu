@@ -27,7 +27,6 @@ import io.legado.app.data.repository.HighlightRuleRepository
 import io.legado.app.help.book.BookContent
 import io.legado.app.help.book.BookHelp
 import io.legado.app.help.book.getBookSource
-import io.legado.app.help.config.AppConfig
 import io.legado.app.help.config.ReadBookConfig
 import io.legado.app.help.coroutine.Coroutine
 import io.legado.app.model.ImageProvider
@@ -45,6 +44,7 @@ import io.legado.app.ui.book.read.page.provider.ChapterProvider.reviewChar
 import io.legado.app.ui.book.read.page.provider.ChapterProvider.srcReplaceChar
 import io.legado.app.ui.book.read.page.provider.ChapterProvider.srcReplaceCharC
 import io.legado.app.ui.book.read.page.provider.ChapterProvider.srcReplaceCharD
+import io.legado.app.ui.config.readConfig.ReadConfig
 import io.legado.app.utils.GSON
 import io.legado.app.utils.StringUtils
 import io.legado.app.utils.dpToPx
@@ -141,7 +141,7 @@ class TextChapterLayout(
     private val useZhLayout = ReadBookConfig.useZhLayout
     private val isMiddleTitle = ReadBookConfig.isMiddleTitle
     private val textFullJustify = ReadBookConfig.textFullJustify
-    private val adaptSpecialStyle = AppConfig.adaptSpecialStyle
+    private val adaptSpecialStyle = ReadConfig.adaptSpecialStyle
     private val pageAnim = book.getPageAnim()
     private val titleSegType = ReadBookConfig.titleSegType
     private val titleSegDistance = ReadBookConfig.titleSegDistance
@@ -490,7 +490,7 @@ class TextChapterLayout(
                 text = sb.toString()
                 if (text.isNotBlank()) {
                     wordCount += text.replace(noWordCountRegex,"").length
-                    val textToType = if (AppConfig.enableReview) text + reviewChar else text
+                    val textToType = if (ReadConfig.enableReview) text + reviewChar else text
                     setTypeText(
                         book,
                         textToType,
@@ -1365,7 +1365,7 @@ class TextChapterLayout(
 
     /**
      * 对有自定义字体的高亮字符重新测量宽度，确保排版和绘制使用同一套字体度量。
-     * 不使用 getTextWidthsCompat 避免对子串错误添加 letterSpacing。
+     * 使用 textPaint 副本测量，避免修改共享 paint 的 typeface 影响绘制线程。
      */
     private fun remeasureWithHighlightFonts(
         text: String,
@@ -1373,26 +1373,22 @@ class TextChapterLayout(
         textPaint: TextPaint,
         widthsArray: FloatArray
     ) {
-        val originalTypeface = textPaint.typeface
-        try {
-            var i = 0
-            while (i < text.length) {
-                val fontPath = charStyles[i]?.fontPath.orEmpty()
-                if (fontPath.isEmpty()) { i++; continue }
-                // 找连续使用同一字体的区间
-                val segStart = i
-                i++
-                while (i < text.length && charStyles[i]?.fontPath.orEmpty() == fontPath) i++
-                val segEnd = i
-                val typeface = TextColumn.getTypeface(fontPath) ?: continue
-                textPaint.typeface = typeface
-                val segLen = segEnd - segStart
-                val segWidths = FloatArray(segLen)
-                textPaint.getTextWidths(text, segStart, segEnd, segWidths)
-                segWidths.copyInto(widthsArray, segStart)
-            }
-        } finally {
-            textPaint.typeface = originalTypeface
+        val measurePaint = TextPaint(textPaint)
+        var i = 0
+        while (i < text.length) {
+            val fontPath = charStyles[i]?.fontPath.orEmpty()
+            if (fontPath.isEmpty()) { i++; continue }
+            // 找连续使用同一字体的区间
+            val segStart = i
+            i++
+            while (i < text.length && charStyles[i]?.fontPath.orEmpty() == fontPath) i++
+            val segEnd = i
+            val typeface = TextColumn.getTypeface(fontPath) ?: continue
+            measurePaint.typeface = typeface
+            val segLen = segEnd - segStart
+            val segWidths = FloatArray(segLen)
+            measurePaint.getTextWidths(text, segStart, segEnd, segWidths)
+            segWidths.copyInto(widthsArray, segStart)
         }
     }
 
