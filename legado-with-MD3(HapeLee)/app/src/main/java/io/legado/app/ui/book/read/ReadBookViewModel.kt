@@ -60,7 +60,6 @@ import io.legado.app.model.webBook.WebBook
 import io.legado.app.service.BaseReadAloudService
 import io.legado.app.ui.book.read.page.entities.TextChapter
 import io.legado.app.ui.book.read.page.entities.TextPage
-import io.legado.app.ui.book.read.page.provider.ChapterProvider
 import io.legado.app.ui.book.read.page.provider.TextChapterLayout
 import io.legado.app.ui.book.searchContent.SearchResult
 import io.legado.app.ui.config.otherConfig.OtherConfig
@@ -232,17 +231,27 @@ class ReadBookViewModel(
             is ReadBookIntent.HideSearchMenu -> _uiState.update { it.copy(searchMenuVisible = false) }
             is ReadBookIntent.SetSearchResults -> {
                 _uiState.update {
+                    val results = intent.results.toImmutableList()
+                    val index = intent.index.coerceSearchResultIndex(results.size)
                     it.copy(
-                        searchResultList = intent.results.toImmutableList(),
-                        searchResultIndex = intent.index,
+                        searchResultList = results,
+                        searchResultIndex = index,
                         isShowingSearchResult = true,
+                        searchMenuVisible = true,
+                        menuState = ReadBookMenuState(),
                         searchContentQuery = intent.query ?: it.searchContentQuery,
                     )
                 }
             }
 
             is ReadBookIntent.SetSearchResultIndex -> {
-                _uiState.update { it.copy(searchResultIndex = intent.index) }
+                _uiState.update {
+                    it.copy(
+                        searchResultIndex = intent.index.coerceSearchResultIndex(
+                            it.searchResultList.size
+                        )
+                    )
+                }
             }
 
             is ReadBookIntent.SetShowingSearchResult -> {
@@ -250,8 +259,25 @@ class ReadBookViewModel(
             }
 
             is ReadBookIntent.NavigateToSearchResult -> {
-                _uiState.update { it.copy(searchResultIndex = intent.index) }
+                ReadBook.saveCurrentBookProgress()
+                _uiState.update {
+                    it.copy(
+                        searchResultIndex = intent.index.coerceSearchResultIndex(
+                            it.searchResultList.size
+                        )
+                    )
+                }
                 navigateToSearchResult(intent.result)
+            }
+
+            is ReadBookIntent.RestoreLastBookProgress -> {
+                _uiState.update { it.copy(activeDialog = null) }
+                ReadBook.restoreLastBookProgress()
+            }
+
+            is ReadBookIntent.KeepCurrentBookProgress -> {
+                ReadBook.lastBookProgress = null
+                _uiState.update { it.copy(activeDialog = null) }
             }
 
             is ReadBookIntent.ToggleReadAloud -> {
@@ -2190,54 +2216,101 @@ class ReadBookViewModel(
     ): Array<Int> {
         val pages = textChapter.pages
         val content = textChapter.getContent()
-        val queryLength = query.length
+        if (pages.isEmpty()) return arrayOf(0, 0, 0, 0, 0)
+
+        val contentPosition = searchResult.queryIndexInChapter
+            .takeIf { it in content.indices && searchResultMatchesAt(content, it, searchResult, query) }
+            ?: findSearchResultPosition(content, searchResult, query)
+        if (contentPosition < 0) return arrayOf(0, 0, 0, 0, 0)
+
+        val pageIndex = textChapter.getPageIndexByCharIndex(contentPosition)
+            .coerceIn(0, pages.lastIndex)
+        val currentPage = pages[pageIndex]
+        val matchLength = searchResult.matchLength.takeIf { it > 0 } ?: query.length
+        val endPosition = (contentPosition + matchLength).coerceAtMost(content.length)
+        val start = linePositionFor(currentPage, contentPosition, preferPreviousAtBoundary = false)
+        val end = linePositionFor(currentPage, endPosition, preferPreviousAtBoundary = true)
+        return arrayOf(pageIndex, start.lineIndex, start.charIndex, end.lineIndex, end.charIndex)
+    }
+
+    private fun findSearchResultPosition(
+        content: String,
+        searchResult: SearchResult,
+        query: String,
+    ): Int {
+        if (query.isEmpty()) return -1
+        if (searchResult.isRegex) {
+            return runCatching {
+                Regex(query).findAll(content)
+                    .drop(searchResult.resultCountWithinChapter)
+                    .firstOrNull()
+                    ?.range
+                    ?.first
+            }.getOrNull() ?: -1
+        }
 
         var count = 0
-        var index = content.indexOf(query)
-        while (count != searchResult.resultCountWithinChapter) {
-            index = content.indexOf(query, index + queryLength)
+        var index = content.indexOf(query, ignoreCase = true)
+        while (count != searchResult.resultCountWithinChapter && index >= 0) {
+            index = content.indexOf(query, index + query.length, ignoreCase = true)
             count += 1
         }
-        val contentPosition = index
-        if (contentPosition < 0) return arrayOf(0, 0, 0, 0, 0)
-        var pageIndex = 0
-        var length = pages[pageIndex].text.length
-        while (length < contentPosition && pageIndex + 1 < pages.size) {
-            pageIndex += 1
-            length += pages[pageIndex].text.length
-        }
-
-        val currentPage = pages[pageIndex]
-        val curTextLines = currentPage.lines
-        var lineIndex = 0
-        var curLine = curTextLines[lineIndex]
-        length = length - currentPage.text.length + curLine.text.length
-        if (curLine.isParagraphEnd) length++
-        while (length < contentPosition && lineIndex + 1 < curTextLines.size) {
-            lineIndex += 1
-            curLine = curTextLines[lineIndex]
-            length += curLine.text.length
-            if (curLine.isParagraphEnd) length++
-        }
-
-        val currentLine = currentPage.lines[lineIndex]
-        var curLineLength = currentLine.text.length
-        if (currentLine.isParagraphEnd) curLineLength++
-        length -= curLineLength
-
-        val charIndex = contentPosition - length
-        var addLine = 0
-        var charIndex2 = 0
-        if ((charIndex + queryLength) > curLineLength) {
-            addLine = 1
-            charIndex2 = charIndex + queryLength - curLineLength - 1
-        }
-        if ((lineIndex + addLine + 1) > currentPage.lines.size) {
-            addLine = -1
-            charIndex2 = charIndex + queryLength - curLineLength - 1
-        }
-        return arrayOf(pageIndex, lineIndex, charIndex, addLine, charIndex2)
+        return index
     }
+
+    private fun searchResultMatchesAt(
+        content: String,
+        position: Int,
+        searchResult: SearchResult,
+        query: String,
+    ): Boolean {
+        if (query.isEmpty()) return false
+        if (searchResult.isRegex) {
+            return runCatching {
+                Regex(query).find(content, position)?.range?.first == position
+            }.getOrDefault(false)
+        }
+        return position + query.length <= content.length &&
+                content.regionMatches(position, query, 0, query.length, ignoreCase = true)
+    }
+
+    private fun linePositionFor(
+        page: TextPage,
+        chapterPosition: Int,
+        preferPreviousAtBoundary: Boolean,
+    ): SearchLinePosition {
+        if (page.lines.isEmpty()) return SearchLinePosition(0, 0)
+        var fallbackIndex = 0
+        page.lines.forEachIndexed { index, line ->
+            val lineEnd = line.chapterPosition + line.text.length +
+                    if (line.isParagraphEnd) 1 else 0
+            if (chapterPosition < line.chapterPosition) {
+                return@forEachIndexed
+            }
+            if (preferPreviousAtBoundary && chapterPosition == line.chapterPosition && index > 0) {
+                val previousLine = page.lines[index - 1]
+                return SearchLinePosition(index - 1, previousLine.text.length)
+            }
+            if (chapterPosition <= lineEnd) {
+                return SearchLinePosition(
+                    lineIndex = index,
+                    charIndex = (chapterPosition - line.chapterPosition).coerceIn(0, line.text.length),
+                )
+            }
+            fallbackIndex = index
+        }
+        val lineIndex = fallbackIndex
+        val line = page.lines[lineIndex]
+        return SearchLinePosition(
+            lineIndex = lineIndex,
+            charIndex = (chapterPosition - line.chapterPosition).coerceIn(0, line.text.length),
+        )
+    }
+
+    private data class SearchLinePosition(
+        val lineIndex: Int,
+        val charIndex: Int,
+    )
 
     /**
      * Compute the search result position and emit [ReadBookEffect.NavigateToSearchResult]
@@ -2252,15 +2325,8 @@ class ReadBookViewModel(
             val pos = searchResultPositions(textChapter, result, query)
             val lineIndex = pos[1]
             val charIndex = pos[2]
-            val addLine = pos[3]
-            val charIndex2 = pos[4]
-            val queryLength = query.length
-            val endLineIndex = lineIndex + addLine.coerceAtLeast(0)
-            val endCharIndex = if (addLine == 0) {
-                charIndex + queryLength
-            } else {
-                charIndex2 + 1
-            }
+            val endLineIndex = pos[3]
+            val endCharIndex = pos[4]
             _effects.tryEmit(
                 ReadBookEffect.NavigateToSearchResult(
                     result = result,
@@ -2886,8 +2952,6 @@ class ReadBookViewModel(
                 viewModelScope.launch {
                     readSettingsRepository.setDoubleHorizontalPage(update.value)
                 }
-                ChapterProvider.upLayout()
-                ReadBook.loadContent(false)
             }
             is ConfigUpdate.ProgressBarBehavior -> {
                 ReadConfig.progressBarBehavior = update.value
@@ -3375,7 +3439,12 @@ class ReadBookViewModel(
         _uiState.update {
             it.copy(
                 isShowingSearchResult = false,
-                searchMenuVisible = false
+                searchMenuVisible = false,
+                activeDialog = if (ReadBook.lastBookProgress != null) {
+                    ReadBookDialog.RestoreLastBookProgress
+                } else {
+                    it.activeDialog
+                }
             )
         }
         _effects.tryEmit(ReadBookEffect.ExitSearch)
@@ -3411,3 +3480,7 @@ private const val TITLE_BAR_ICON_KEY = "icons"
 private const val TOOL_BUTTON_PREFS = "tool_button_config"
 private const val TOOL_BUTTON_KEY = "tool_buttons"
 private const val DEFAULT_ENABLED_BUTTON_COUNT = 5
+
+private fun Int.coerceSearchResultIndex(resultSize: Int): Int {
+    return if (resultSize <= 0) 0 else coerceIn(0, resultSize - 1)
+}
