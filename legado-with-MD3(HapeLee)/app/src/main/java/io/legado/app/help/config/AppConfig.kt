@@ -85,7 +85,7 @@ object AppConfig : SharedPreferences.OnSharedPreferenceChangeListener {
             ReadConfig.optimizeRender = value
         }
     val recordLog get() = OtherConfig.recordLog
-    var webServiceAutoStart = appCtx.getPrefBoolean(PreferKey.webServiceAutoStart, false)
+    val webServiceAutoStart get() = OtherConfig.webServiceAutoStart
 
     // -- lyc 版本特性 --
     val adaptSpecialStyle get() = ReadConfig.adaptSpecialStyle
@@ -633,18 +633,6 @@ object AppConfig : SharedPreferences.OnSharedPreferenceChangeListener {
 
     val paddingDisplayCutouts
         get() = ReadConfig.paddingDisplayCutouts
-
-    var searchScope: String
-        get() = appCtx.getPrefString("searchScope") ?: ""
-        set(value) {
-            appCtx.putPrefString("searchScope", value)
-        }
-
-    var searchGroup: String
-        get() = appCtx.getPrefString("searchGroup") ?: ""
-        set(value) {
-            appCtx.putPrefString("searchGroup", value)
-        }
 
     var pageTouchSlop: Int
         get() = ReadConfig.pageTouchSlop
