@@ -182,11 +182,14 @@ data class ReadMenuConfig(
     val readMenuBorderColor: Int = 0,
     val readMenuBorderColorNight: Int = 0,
     val readMenuBlurAlpha: Int = 60,
+    val readMenuBlurColor: Int = 0,
+    val readMenuPaletteStyle: String = "",
     val readMenuBlurRadius: Int = 24,
     val readMenuLensRadius: Float = 24f,
     val readMenuTopBarBlurMode: Int = ReadMenuBlurMode.None,
     val readMenuBottomBarBlurMode: Int = ReadMenuBlurMode.None,
     val readMenuTopBarLiquidGlassButtons: Boolean = false,
+    val readMenuTopBarTitleCapsule: Boolean = false,
     val readMenuBottomBarLiquidGlassButtons: Boolean = false,
     val readMenuTopBarBlurStyle: Int = ReadMenuBlurStyle.Progressive,
     val readMenuBottomBarBlurStyle: Int = ReadMenuBlurStyle.Solid,
@@ -481,6 +484,8 @@ sealed interface ReadBookIntent {
     data object OpenSystemTtsSettings : ReadBookIntent
     data object ClearTtsCache : ReadBookIntent
     data class SelectFont(val path: String) : ReadBookIntent
+    data class SelectTitleFont(val path: String) : ReadBookIntent
+    data class SelectTitleSystemTypeface(val index: Int) : ReadBookIntent
     data class SelectSystemTypeface(val index: Int) : ReadBookIntent
     data class ColorSelected(val dialogId: Int, val color: Int) : ReadBookIntent
 
@@ -652,6 +657,7 @@ sealed interface ReadBookSheet {
     data object ShadowSet : ReadBookSheet
     data object UnderlineConfig : ReadBookSheet
     data object FontSelect : ReadBookSheet
+    data object TitleFontSelect : ReadBookSheet
     data object HighlightRuleConfig : ReadBookSheet
     data object MoreConfig : ReadBookSheet
     data object BgTextConfig : ReadBookSheet
@@ -767,6 +773,18 @@ sealed interface ConfigUpdate {
     }
     data class TitleColor(val color: Int) : ConfigUpdate {
         override val actions = setOf(ConfigUpdateAction.UpdateStyle, ConfigUpdateAction.ReloadContent, ConfigUpdateAction.InvalidateTextPage)
+    }
+    data class TitleFont(val path: String) : ConfigUpdate {
+        override val actions = setOf(ConfigUpdateAction.UpdateChapterStyle, ConfigUpdateAction.ReloadContent)
+    }
+    data class TitleSegType(val value: Int) : ConfigUpdate {
+        override val actions = setOf(ConfigUpdateAction.UpdateChapterStyle, ConfigUpdateAction.ReloadContent)
+    }
+    data class TitleSegDistance(val value: Int) : ConfigUpdate {
+        override val actions = setOf(ConfigUpdateAction.UpdateChapterStyle, ConfigUpdateAction.ReloadContent)
+    }
+    data class TitleSegFlag(val value: String) : ConfigUpdate {
+        override val actions = setOf(ConfigUpdateAction.UpdateChapterStyle, ConfigUpdateAction.ReloadContent)
     }
 
     // --- Header / footer tips ---
@@ -1004,6 +1022,9 @@ sealed interface ConfigUpdate {
     data class MenuTopBarLiquidGlassButtons(val value: Boolean) : ConfigUpdate {
         override val actions = emptySet<ConfigUpdateAction>()
     }
+    data class MenuTopBarTitleCapsule(val value: Boolean) : ConfigUpdate {
+        override val actions = emptySet<ConfigUpdateAction>()
+    }
     data class MenuBottomBarLiquidGlassButtons(val value: Boolean) : ConfigUpdate {
         override val actions = emptySet<ConfigUpdateAction>()
     }
@@ -1017,6 +1038,12 @@ sealed interface ConfigUpdate {
         override val actions = emptySet<ConfigUpdateAction>()
     }
     data class MenuBlurAlpha(val value: Int) : ConfigUpdate {
+        override val actions = emptySet<ConfigUpdateAction>()
+    }
+    data class MenuBlurColor(val color: Int) : ConfigUpdate {
+        override val actions = emptySet<ConfigUpdateAction>()
+    }
+    data class MenuPaletteStyle(val value: String) : ConfigUpdate {
         override val actions = emptySet<ConfigUpdateAction>()
     }
     data class MenuLensRadius(val value: Float) : ConfigUpdate {

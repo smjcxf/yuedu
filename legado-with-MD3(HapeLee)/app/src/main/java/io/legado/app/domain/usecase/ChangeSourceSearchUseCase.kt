@@ -25,12 +25,13 @@ import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.flow.flatMapMerge
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.withTimeout
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 
 sealed interface ChangeSourceSearchEvent {
-    data object Started : ChangeSourceSearchEvent
+    data class Started(val totalSources: Int) : ChangeSourceSearchEvent
     data class Progress(
         val processedSources: Int,
         val totalSources: Int,
@@ -69,23 +70,20 @@ class ChangeSourceSearchUseCase(
         if (bookSourceParts.isEmpty()) {
             throw io.legado.app.exception.NoStackTraceException("启用书源为空")
         }
-        val sources = bookSourceParts.mapNotNull { it.getBookSource() }
-        if (sources.isEmpty()) {
-            throw io.legado.app.exception.NoStackTraceException("启用书源为空")
-        }
 
         tocMap.clear()
         bookMap.clear()
         tocMapChapterCount.set(0)
 
-        emit(ChangeSourceSearchEvent.Started)
+        val totalSources = bookSourceParts.size
+        emit(ChangeSourceSearchEvent.Started(totalSources))
 
         var processedSources = 0
         var resultCount = 0
-        val totalSources = sources.size
         val concurrency = threadCount.coerceAtLeast(1)
 
-        sources.asFlow()
+        bookSourceParts.asFlow()
+            .mapNotNull { it.getBookSource() }
             .flatMapMerge(concurrency) { source ->
                 flow {
                     val books = try {
@@ -154,7 +152,7 @@ class ChangeSourceSearchUseCase(
                 loadInfo || loadToc || loadWordCount -> {
                     val book = searchBook.toBook()
                     try {
-                        loadBookInfo(
+                        val wordCountSearchBook = loadBookInfo(
                             source,
                             book,
                             loadToc,
@@ -163,8 +161,7 @@ class ChangeSourceSearchUseCase(
                             fromReadBookActivity,
                             contentProcessor
                         )
-                        val processedSearchBook = book.toSearchBook()
-                        processedBooks.add(processedSearchBook)
+                        processedBooks.add(wordCountSearchBook ?: book.toSearchBook())
                     } catch (e: Throwable) {
                         if (e is CancellationException) throw e
                         processedBooks.add(searchBook)
@@ -187,12 +184,12 @@ class ChangeSourceSearchUseCase(
         oldBook: Book,
         fromReadBookActivity: Boolean,
         contentProcessor: ContentProcessor,
-    ) {
+    ): SearchBook? {
         if (book.tocUrl.isEmpty()) {
             WebBook.getBookInfoAwait(source, book)
         }
         if (loadToc || loadWordCount) {
-            loadBookToc(
+            return loadBookToc(
                 source,
                 book,
                 loadWordCount,
@@ -201,6 +198,7 @@ class ChangeSourceSearchUseCase(
                 contentProcessor
             )
         }
+        return null
     }
 
     private suspend fun loadBookToc(
@@ -210,7 +208,7 @@ class ChangeSourceSearchUseCase(
         oldBook: Book,
         fromReadBookActivity: Boolean,
         contentProcessor: ContentProcessor,
-    ) {
+    ): SearchBook? {
         val chapters = WebBook.getChapterListAwait(source, book).getOrThrow()
         for (chapter in chapters) {
             chapter.internString()
@@ -222,7 +220,7 @@ class ChangeSourceSearchUseCase(
         bookMap[book.primaryStr()] = book
         book.releaseHtmlData()
         if (loadWordCount) {
-            loadBookWordCount(
+            return loadBookWordCount(
                 source,
                 book,
                 chapters,
@@ -231,6 +229,7 @@ class ChangeSourceSearchUseCase(
                 contentProcessor
             )
         }
+        return book.toSearchBook()
     }
 
     private suspend fun loadBookWordCount(
@@ -240,21 +239,21 @@ class ChangeSourceSearchUseCase(
         oldBook: Book,
         fromReadBookActivity: Boolean,
         contentProcessor: ContentProcessor,
-    ) {
-        if (chapters.isEmpty()) return
+    ): SearchBook? {
+        if (chapters.isEmpty()) return null
         val chapterIndex = if (fromReadBookActivity) {
             BookHelp.getDurChapter(oldBook, chapters)
         } else {
             chapters.lastIndex
         }
-        if (chapterIndex !in chapters.indices) return
+        if (chapterIndex !in chapters.indices) return null
         val bookChapter = chapters[chapterIndex]
         var title = bookChapter.title.trim()
         if (title.length > 20) {
             title = title.substring(0, 20) + "…"
         }
         val startTime = System.currentTimeMillis()
-        try {
+        return try {
             val nextChapterUrl = chapters.getOrNull(chapterIndex + 1)?.url
             var content = WebBook.getContentAwait(source, book, bookChapter, nextChapterUrl, false)
             content = contentProcessor.getContent(oldBook, bookChapter, content, false).toString()
