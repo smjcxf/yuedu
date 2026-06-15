@@ -125,15 +125,15 @@ object AppConfig : SharedPreferences.OnSharedPreferenceChangeListener {
         ReadConfig.pageTouchSlop = preferences.pageTouchSlop
         ReadConfig.showReadTitleAddition = preferences.showReadTitleAddition
         ReadConfig.titleBarMode = preferences.titleBarMode
-        ReadConfig.readMenuBlurAlpha = preferences.readMenuBlurAlpha
-        ReadConfig.readSliderMode = preferences.readSliderMode
+        ReadBookConfig.readMenuBlurAlpha = preferences.readMenuBlurAlpha
+        ReadBookConfig.readSliderMode = preferences.readSliderMode
         readBarStyleFollowPageValue = preferences.readBarStyleFollowPage
         readBarStyleValue = preferences.readBarStyle
         ReadConfig.defaultSourceChangeAll = preferences.defaultSourceChangeAll
         ReadConfig.sliderVibrator = preferences.sliderVibrator
         ReadConfig.selectVibrator = preferences.selectVibrator
-        ReadConfig.brightnessVwPos = preferences.brightnessVwPos
-        ReadConfig.readBrightness = preferences.readBrightness
+        ReadBookConfig.brightnessVwPos = preferences.brightnessVwPos
+        ReadBookConfig.readBrightness = preferences.readBrightness
     }
 
     fun updateReadBarStyleCache(value: Int) {
@@ -837,17 +837,17 @@ object AppConfig : SharedPreferences.OnSharedPreferenceChangeListener {
             ThemeConfig.enableBlur = value
         }
 
-    @Deprecated("Use ReadConfig.readMenuBlurAlpha instead", ReplaceWith("ReadConfig.readMenuBlurAlpha"))
+    @Deprecated("Use ReadBookConfig.readMenuBlurAlpha instead", ReplaceWith("ReadBookConfig.readMenuBlurAlpha"))
     var menuAlpha: Int
-        get() = ReadConfig.readMenuBlurAlpha
+        get() = ReadBookConfig.readMenuBlurAlpha
         set(value) {
-            ReadConfig.readMenuBlurAlpha = value
+            ReadBookConfig.readMenuBlurAlpha = value
         }
 
     var readSliderMode
-        get() = ReadConfig.readSliderMode
+        get() = ReadBookConfig.readSliderMode
         set(value) {
-            ReadConfig.readSliderMode = value
+            ReadBookConfig.readSliderMode = value
         }
 
     var bookshelfRefreshingLimit: Int
