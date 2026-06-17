@@ -6,10 +6,8 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
@@ -79,6 +77,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -101,6 +100,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -411,7 +411,13 @@ private fun ReadBookMenuSurface(
         560.dp
     }
     val isFloating = state.menuConfig.readMenuFloatingBottomBar
-    val navBarHeight = with(density) { WindowInsets.navigationBars.getBottom(this).toDp() }
+    val orientation = LocalConfiguration.current.orientation
+    val currentNavBarHeight = with(density) { WindowInsets.navigationBars.getBottom(this).toDp() }
+    var lastValidNavBarHeightValue by rememberSaveable(orientation) { mutableFloatStateOf(currentNavBarHeight.value) }
+    if (currentNavBarHeight.value > 0f && lastValidNavBarHeightValue != currentNavBarHeight.value) {
+        lastValidNavBarHeightValue = currentNavBarHeight.value
+    }
+    val navBarHeight = if (currentNavBarHeight.value > 0f) currentNavBarHeight else lastValidNavBarHeightValue.dp
     val floatingHorizontalMargin = if (isFloating) 16.dp else 0.dp
     val floatingBottomMargin = if (isFloating) 16.dp + navBarHeight else 0.dp
     val mainHorizontalMargin =
@@ -1582,6 +1588,7 @@ private fun FloatingIconRow(
                 ),
                 selected = iconDef.isActive,
                 modifier = Modifier.padding(horizontal = 4.dp),
+                onLongClick = iconDef.onLongClick,
             ) {
                 if (isCustom) {
                     AsyncImage(
@@ -2446,6 +2453,7 @@ private fun ToolButtonItem(
                 menuConfig = state.menuConfig,
                 glassEnabled = true,
                 selected = button.isActive,
+                onLongClick = button.onLongClick,
             ) { tint ->
                 ToolButtonContent(
                     button = button,
@@ -2470,6 +2478,7 @@ private fun ToolButtonItem(
                         indication = LocalIndication.current,
                         interactionSource = remember { MutableInteractionSource() },
                         role = Role.Button,
+                        onLongClick = button.onLongClick,
                         onClick = button.onClick,
                     ),
             ) {
@@ -2553,6 +2562,7 @@ private data class ToolButtonDef(
     val customIconPath: String?,
     val isActive: Boolean = false,
     val onClick: () -> Unit,
+    val onLongClick: (() -> Unit)? = null,
 )
 
 private fun loadToolButtons(
@@ -2561,8 +2571,12 @@ private fun loadToolButtons(
     onIntent: (ReadBookIntent) -> Unit,
 ): List<ToolButtonDef> {
     val customIcons = state.menuConfig.readMenuCustomIcons
-    fun ReadMenuButtonInfo.toButton(isActive: Boolean = false, onClick: () -> Unit): ToolButtonDef {
-        return ToolButtonDef(id, icon, label, customIcons[id], isActive, onClick)
+    fun ReadMenuButtonInfo.toButton(
+        isActive: Boolean = false,
+        onLongClick: (() -> Unit)? = null,
+        onClick: () -> Unit,
+    ): ToolButtonDef {
+        return ToolButtonDef(id, icon, label, customIcons[id], isActive, onClick, onLongClick)
     }
     val infoMap = readMenuButtonInfos(context).associateBy { it.id }
     val allButtons = listOf(
@@ -2572,7 +2586,10 @@ private fun loadToolButtons(
         infoMap.getValue("catalog").toButton {
             onIntent(ReadBookIntent.OpenChapterList)
         },
-        infoMap.getValue("read_aloud").toButton(isActive = state.isReadAloudRunning) {
+        infoMap.getValue("read_aloud").toButton(
+            isActive = state.isReadAloudRunning,
+            onLongClick = { onIntent(ReadBookIntent.ShowReadAloudConfig) },
+        ) {
             if (state.isReadAloudRunning) {
                 onIntent(ReadBookIntent.OpenReadMenuRoute(ReadBookMenuRoute.ReadAloud))
             } else {
@@ -2906,6 +2923,7 @@ private data class TitleBarIconDef(
     val label: String,
     val isActive: Boolean = false,
     val onClick: () -> Unit,
+    val onLongClick: (() -> Unit)? = null,
 )
 
 private fun loadFloatingIcons(
@@ -2961,6 +2979,11 @@ private fun loadFloatingIcons(
                 label = info.label,
                 isActive = id in activeIds,
                 onClick = actionMap[id] ?: {},
+                onLongClick = if (id == "read_aloud") {
+                    { onIntent(ReadBookIntent.ShowReadAloudConfig) }
+                } else {
+                    null
+                },
             )
         }
         .toList()
