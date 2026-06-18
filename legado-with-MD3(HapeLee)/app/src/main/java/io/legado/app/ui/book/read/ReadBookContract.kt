@@ -14,7 +14,9 @@ import io.legado.app.data.entities.HighlightRule
 import io.legado.app.data.entities.HttpTTS
 import io.legado.app.ui.book.read.page.entities.TextChapter
 import io.legado.app.ui.book.read.page.entities.TextPage
+import io.legado.app.ui.book.read.page.entities.TextPos
 import io.legado.app.ui.book.searchContent.SearchResult
+import io.legado.app.ui.widget.components.importComponents.BaseImportUiState
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.persistentListOf
@@ -140,6 +142,7 @@ data class ReadBookUiState(
     val selectedTtsEngine: String? = null,
     val speakEngineName: String = "",
     val editingHttpTts: HttpTTS? = null,
+    val httpTtsImportState: BaseImportUiState<HttpTTS> = BaseImportUiState.Idle,
     val preDownloadNum: Int = 10,
     val audioCacheCleanTime: Int = 10,
     // Read aloud config
@@ -430,7 +433,7 @@ sealed interface ReadBookIntent {
 
     // Default font picker (needs Activity for AlertDialog)
     // Text action menu (moved from Activity)
-    data class TextActionAloud(val text: String) : ReadBookIntent
+    data class TextActionAloud(val text: String, val selectStartPos: TextPos?) : ReadBookIntent
     data class TextActionBookmark(val bookmark: Bookmark) : ReadBookIntent
     data class TextActionReplace(val text: String) : ReadBookIntent
     data class TextActionSearchContent(val text: String) : ReadBookIntent
@@ -467,7 +470,13 @@ sealed interface ReadBookIntent {
     data class ImportHttpTtsSource(val text: String) : ReadBookIntent
     data object ImportHttpTtsFile : ReadBookIntent
     data class ImportHttpTtsFileSelected(val uri: Uri) : ReadBookIntent
+    data object CancelHttpTtsImport : ReadBookIntent
+    data class ToggleHttpTtsImportSelection(val index: Int) : ReadBookIntent
+    data class ToggleHttpTtsImportAll(val isSelected: Boolean) : ReadBookIntent
+    data class UpdateHttpTtsImportItem(val index: Int, val httpTTS: HttpTTS) : ReadBookIntent
+    data object SaveImportedHttpTts : ReadBookIntent
     data object ExportAllHttpTts : ReadBookIntent
+    data object ExportAllHttpTtsAsUrl : ReadBookIntent
     data class ExportHttpTtsToFile(val uri: Uri) : ReadBookIntent
     data class SetReadAloudIgnoreAudioFocus(val value: Boolean) : ReadBookIntent
     data class SetReadAloudPauseOnPhoneCall(val value: Boolean) : ReadBookIntent
@@ -510,7 +519,7 @@ sealed interface ReadBookIntent {
     data object OnResume : ReadBookIntent
     data object OnPause : ReadBookIntent
     data object OnDispose : ReadBookIntent
-    data object CloseReadBook : ReadBookIntent
+    data class CloseReadBook(val keepReadAloud: Boolean = false) : ReadBookIntent
     data object OpenBooksDirPicker : ReadBookIntent
     data class BooksDirSelected(val uri: Uri) : ReadBookIntent
 }
@@ -593,7 +602,7 @@ sealed interface ReadBookEffect {
     data class SyncBookProgress(val book: Book) : ReadBookEffect
 
     // Text action menu (needs Activity for View operations)
-    data object TextActionAloudSelect : ReadBookEffect
+    data class TextActionAloudSelect(val selectStartPos: TextPos) : ReadBookEffect
     data class TextActionSpeak(val text: String) : ReadBookEffect
     data class TextActionReplace(val text: String, val bookName: String?, val bookSourceUrl: String?) : ReadBookEffect
 
@@ -713,6 +722,7 @@ sealed interface ConfigUpdateAction {
     data object InvalidateTextPage : ConfigUpdateAction
     data object UpdateLayout : ConfigUpdateAction
     data object SubmitRenderTask : ConfigUpdateAction
+    data object UpdatePageAnim : ConfigUpdateAction
 }
 
 /**
@@ -836,13 +846,28 @@ sealed interface ConfigUpdate {
 
     // --- Layout / style ---
     data class StyleSelect(val index: Int) : ConfigUpdate {
-        override val actions = setOf(ConfigUpdateAction.UpdateBackground, ConfigUpdateAction.UpdateStyle, ConfigUpdateAction.ReloadContent, ConfigUpdateAction.UpdateSystemUi)
+        override val actions = setOf(
+            ConfigUpdateAction.UpdateBackground,
+            ConfigUpdateAction.UpdateStyle,
+            ConfigUpdateAction.ReloadContent,
+            ConfigUpdateAction.UpdateSystemUi,
+            ConfigUpdateAction.UpdatePageAnim
+        )
     }
     data class ShareLayout(val value: Boolean) : ConfigUpdate {
-        override val actions = setOf(ConfigUpdateAction.UpdateBackground, ConfigUpdateAction.UpdateStyle, ConfigUpdateAction.ReloadContent)
+        override val actions = setOf(
+            ConfigUpdateAction.UpdateBackground,
+            ConfigUpdateAction.UpdateStyle,
+            ConfigUpdateAction.ReloadContent,
+            ConfigUpdateAction.UpdatePageAnim
+        )
     }
     data class PageAnim(val value: Int) : ConfigUpdate {
-        override val actions = setOf(ConfigUpdateAction.UpdateBackground)
+        override val actions = setOf(
+            ConfigUpdateAction.UpdateBackground,
+            ConfigUpdateAction.UpdatePageAnim,
+            ConfigUpdateAction.ReloadContent
+        )
     }
 
     // --- Menu colors ---

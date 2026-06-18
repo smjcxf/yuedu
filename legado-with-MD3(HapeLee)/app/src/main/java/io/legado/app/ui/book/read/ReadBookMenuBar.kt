@@ -1,7 +1,10 @@
 package io.legado.app.ui.book.read
 
+import android.app.Activity
 import android.content.Context
+import android.content.ContextWrapper
 import android.os.Build
+import androidx.activity.compose.LocalActivity
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.SizeTransform
@@ -714,7 +717,9 @@ private fun ReadBookMenuSurface(
                                     onIntent(ReadBookIntent.HideMenu)
                                     onIntent(ReadBookIntent.OpenChapterList)
                                 },
-                                onGoToBackground = { onIntent(ReadBookIntent.CloseReadBook) },
+                                onGoToBackground = {
+                                    onIntent(ReadBookIntent.CloseReadBook(keepReadAloud = true))
+                                },
                                 onShowReadAloudConfig = {
                                     onIntent(ReadBookIntent.ShowReadAloudConfig)
                                 },
@@ -928,7 +933,7 @@ private fun MenuTitleBar(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 MenuTitleGlassButton(
-                    onClick = { onIntent(ReadBookIntent.CloseReadBook) },
+                    onClick = { onIntent(ReadBookIntent.CloseReadBook()) },
                     icon = Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = "Back",
                     state = state,
@@ -2588,7 +2593,9 @@ private fun loadToolButtons(
         },
         infoMap.getValue("read_aloud").toButton(
             isActive = state.isReadAloudRunning,
-            onLongClick = { onIntent(ReadBookIntent.ShowReadAloudConfig) },
+            onLongClick = {
+                onIntent(ReadBookIntent.OpenReadMenuRoute(ReadBookMenuRoute.ReadAloud))
+            },
         ) {
             if (state.isReadAloudRunning) {
                 onIntent(ReadBookIntent.OpenReadMenuRoute(ReadBookMenuRoute.ReadAloud))
@@ -2980,7 +2987,7 @@ private fun loadFloatingIcons(
                 isActive = id in activeIds,
                 onClick = actionMap[id] ?: {},
                 onLongClick = if (id == "read_aloud") {
-                    { onIntent(ReadBookIntent.ShowReadAloudConfig) }
+                    { onIntent(ReadBookIntent.OpenReadMenuRoute(ReadBookMenuRoute.ReadAloud)) }
                 } else {
                     null
                 },
@@ -3004,6 +3011,7 @@ private fun BrightnessBar(
     buttonGlassEnabled: Boolean = false,
     glassThumbEnabled: Boolean = false,
 ) {
+    val activity = LocalActivity.current
     var sliderValue by remember { mutableFloatStateOf(brightness.toFloat()) }
     var sliderDragging by remember { mutableStateOf(false) }
 
@@ -3013,6 +3021,23 @@ private fun BrightnessBar(
             sliderValue = brightness.toFloat()
         } else if (!sliderDragging) {
             sliderValue = brightness.toFloat()
+        }
+    }
+
+    fun updateSliderValue(value: Float) {
+        if (brightnessAuto) return
+        sliderDragging = true
+        sliderValue = value.coerceIn(0f, 100f)
+        val target = value.roundToInt().coerceIn(0, 100)
+
+        //直接先改亮度，如果在这里onBrightnessChange，会ANR
+        activity?.let { act ->
+            val lp = act.window.attributes
+            val targetBrightness = target / 100f
+            if (lp.screenBrightness != targetBrightness) {
+                lp.screenBrightness = targetBrightness
+                act.window.attributes = lp
+            }
         }
     }
 
@@ -3052,8 +3077,7 @@ private fun BrightnessBar(
                 value = sliderValue.coerceIn(0f, 100f),
                 onValueChange = { value ->
                     if (brightnessAuto) return@AppVerticalSlider
-                    sliderDragging = true
-                    sliderValue = value.coerceIn(0f, 100f)
+                    updateSliderValue(value)
                 },
                 onValueChangeFinished = {
                     commitSliderValue(sliderValue)
@@ -3095,8 +3119,7 @@ private fun BrightnessBar(
                 value = sliderValue.coerceIn(0f, 100f),
                 onValueChange = { value ->
                     if (brightnessAuto) return@ReadMenuSlider
-                    sliderDragging = true
-                    sliderValue = value.coerceIn(0f, 100f)
+                    updateSliderValue(value)
                 },
                 onValueChangeFinished = {
                     commitSliderValue(sliderValue)

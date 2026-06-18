@@ -535,7 +535,12 @@ class ReadBookController(
     override fun onMenuItemSelected(itemId: Int): Boolean {
         when (itemId) {
             R.id.menu_aloud -> {
-                viewModel.onIntent(ReadBookIntent.TextActionAloud(selectedText))
+                viewModel.onIntent(
+                    ReadBookIntent.TextActionAloud(
+                        selectedText,
+                        refs?.readView?.curPage?.selectStartPos?.copy(),
+                    )
+                )
                 return true
             }
 
@@ -600,6 +605,7 @@ class ReadBookController(
                         ConfigUpdateAction.InvalidateTextPage -> r.readView.invalidateTextPage()
                         ConfigUpdateAction.UpdateLayout -> ChapterProvider.upLayout()
                         ConfigUpdateAction.SubmitRenderTask -> r.readView.submitRenderTask()
+                        ConfigUpdateAction.UpdatePageAnim -> r.readView.upPageAnim()
                     }
                 }
             }
@@ -714,7 +720,9 @@ class ReadBookController(
             is ReadBookEffect.ToggleAutoPage -> onToggleAutoPage?.invoke() ?: toggleAutoPage()
             is ReadBookEffect.StopAutoPage -> onStopAutoPage?.invoke() ?: stopAutoPage()
             is ReadBookEffect.TextActionAloudSelect -> {
-                activity.lifecycleScope.launch { refs?.readView?.aloudStartSelect() }
+                activity.lifecycleScope.launch {
+                    refs?.readView?.aloudStartSelect(effect.selectStartPos.copy())
+                }
             }
 
             is ReadBookEffect.TextActionSpeak -> speak(effect.text)
