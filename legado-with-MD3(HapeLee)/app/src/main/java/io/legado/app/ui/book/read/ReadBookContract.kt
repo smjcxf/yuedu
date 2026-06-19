@@ -208,6 +208,7 @@ data class ReadMenuConfig(
     val brightnessVwPos: String = "1",
     val readBrightness: Int = 100,
     val brightnessAuto: Boolean = false,
+    val showMenuIcon: Boolean = true,
 )
 
 @Immutable
@@ -340,6 +341,7 @@ sealed interface ReadBookIntent {
     data object ToggleReadUrlInBrowser : ReadBookIntent
 
     // Content edit
+    data object OpenContentEdit : ReadBookIntent
     data object LoadContentEdit : ReadBookIntent
     data class SaveContentEdit(val content: String, val saveToSource: Boolean) : ReadBookIntent
     data object ResetContentEdit : ReadBookIntent
@@ -1106,6 +1108,9 @@ sealed interface ConfigUpdate {
         override val actions = setOf(ConfigUpdateAction.UpdateStyle)
     }
     data class TitleBarMode(val value: String) : ConfigUpdate {
+        override val actions = emptySet<ConfigUpdateAction>()
+    }
+    data class ShowMenuIcon(val value: Boolean) : ConfigUpdate {
         override val actions = emptySet<ConfigUpdateAction>()
     }
     data class ReadBodyToLh(val value: Boolean) : ConfigUpdate {
