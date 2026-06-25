@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
@@ -89,6 +91,7 @@ fun BgTextConfigSheet(
             onDismissRequest()
         },
         title = styleName,
+        contentWindowInsets = { WindowInsets.navigationBars },
     ) {
         Column(
             modifier = Modifier
@@ -111,6 +114,7 @@ fun BgTextConfigSheet(
                     title = stringResource(R.string.delete),
                     imageVector = Icons.Default.Delete,
                     modifier = Modifier.weight(1f),
+                    enabled = styleConfig.styleSelect >= 5,
                     onClick = { onIntent(ReadBookIntent.DeleteCurrentReadStyleConfig) },
                 )
                 ActionCard(
@@ -303,12 +307,14 @@ private fun ActionCard(
     title: String,
     imageVector: ImageVector,
     modifier: Modifier = Modifier,
+    enabled: Boolean = true,
     onClick: () -> Unit,
 ) {
+    val contentAlpha = if (enabled) 1f else 0.38f
     NormalCard(
-        onClick = onClick,
+        onClick = if (enabled) onClick else null,
         modifier = modifier,
-        containerColor = LegadoTheme.colorScheme.surfaceContainerLow,
+        containerColor = if (enabled) LegadoTheme.colorScheme.surfaceContainerLow else LegadoTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.5f),
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -320,14 +326,14 @@ private fun ActionCard(
             Icon(
                 imageVector = imageVector,
                 contentDescription = null,
-                tint = LegadoTheme.colorScheme.onSurfaceVariant,
+                tint = LegadoTheme.colorScheme.onSurfaceVariant.copy(alpha = contentAlpha),
                 modifier = Modifier.size(20.dp),
             )
             Spacer(Modifier.height(4.dp))
             Text(
                 text = title,
                 style = LegadoTheme.typography.labelSmall,
-                color = LegadoTheme.colorScheme.onSurfaceVariant,
+                color = LegadoTheme.colorScheme.onSurfaceVariant.copy(alpha = contentAlpha),
             )
         }
     }
