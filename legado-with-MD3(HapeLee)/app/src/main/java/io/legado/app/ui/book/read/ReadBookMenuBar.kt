@@ -1,8 +1,6 @@
 package io.legado.app.ui.book.read
 
-import android.app.Activity
 import android.content.Context
-import android.content.ContextWrapper
 import android.os.Build
 import androidx.activity.compose.LocalActivity
 import androidx.compose.animation.AnimatedContent
@@ -59,25 +57,28 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.Login
+import androidx.compose.material.icons.filled.Animation
+import androidx.compose.material.icons.filled.AutoStories
 import androidx.compose.material.icons.filled.Block
+import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BrightnessAuto
+import androidx.compose.material.icons.filled.BugReport
+import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.CleanHands
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.FindReplace
+import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Payment
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.SwapHoriz
-import androidx.compose.material.icons.filled.Animation
-import androidx.compose.material.icons.filled.AutoStories
-import androidx.compose.material.icons.filled.Bookmark
-import androidx.compose.material.icons.filled.Build
-import androidx.compose.material.icons.filled.CleanHands
-import androidx.compose.material.icons.filled.CloudDownload
-import androidx.compose.material.icons.filled.FindReplace
-import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.Replay
 import androidx.compose.material.icons.filled.Rule
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.SwapVert
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.Toc
@@ -166,10 +167,8 @@ import io.legado.app.ui.theme.LegadoTheme
 import io.legado.app.ui.theme.hazeStyle.HazeLegado
 import io.legado.app.ui.widget.components.AppSlider
 import io.legado.app.ui.widget.components.AppVerticalSlider
-import io.legado.app.ui.widget.components.bookmark.BookmarkEditContent
 import io.legado.app.ui.widget.components.button.series.SmallTonalButton
 import io.legado.app.ui.widget.components.divider.PillDivider
-import io.legado.app.ui.widget.components.icon.AppIcons
 import io.legado.app.ui.widget.components.menuItem.MenuItemIcon
 import io.legado.app.ui.widget.components.menuItem.RoundDropdownMenu
 import io.legado.app.ui.widget.components.menuItem.RoundDropdownMenuItem
@@ -764,23 +763,6 @@ private fun ReadBookMenuSurface(
                     }
                 }
 
-                    is ReadBookMenuRoute.Bookmark -> {
-                        ReadBookMenuRoutePage(
-                            title = targetRoute.bookmark.chapterName,
-                            maxHeight = maxHeight,
-                            scrollContent = true,
-                            bottomPadding = if (extendSurfaceToNavigationBar) navBarHeight else 0.dp,
-                            onBack = { onIntent(ReadBookIntent.ReadMenuBack) },
-                        ) {
-                            Box(Modifier.padding(horizontal = 16.dp)) {
-                                BookmarkEditContent(
-                                    bookmark = targetRoute.bookmark,
-                                    onSave = { onIntent(ReadBookIntent.SaveBookmark(it)) },
-                                    onDelete = { onIntent(ReadBookIntent.DeleteBookmark(it)) },
-                                )
-                            }
-                        }
-                    }
                 }
             }
         }
@@ -1003,6 +985,27 @@ private fun MenuTitleBar(
                             backdrop = backdrop,
                         )
                         RefreshActionButton(
+                            state = state,
+                            colors = colors,
+                            onIntent = onIntent,
+                            backdrop = backdrop,
+                        )
+                        DownloadActionButton(
+                            state = state,
+                            colors = colors,
+                            onIntent = onIntent,
+                            backdrop = backdrop,
+                        )
+                    } else {
+                        if (state.isLocalTxt) {
+                            TxtTocRuleActionButton(
+                                state = state,
+                                colors = colors,
+                                onIntent = onIntent,
+                                backdrop = backdrop,
+                            )
+                        }
+                        CharsetActionButton(
                             state = state,
                             colors = colors,
                             onIntent = onIntent,
@@ -1423,6 +1426,89 @@ private fun MenuTitleBarMergedGlassButton(
                         .height(20.dp)
                         .background(tint.copy(alpha = 0.15f))
                 )
+
+                // Download
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clickable(
+                            indication = null,
+                            interactionSource = remember { MutableInteractionSource() },
+                            role = Role.Button,
+                            onClick = { onIntent(ReadBookIntent.ShowSheet(ReadBookSheet.Download)) },
+                        ),
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.CloudDownload,
+                        contentDescription = stringResource(R.string.offline_cache),
+                        tint = tint,
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
+
+                Box(
+                    modifier = Modifier
+                        .width(1.dp)
+                        .height(20.dp)
+                        .background(tint.copy(alpha = 0.15f))
+                )
+            } else {
+                // TXT directory rule
+                if (state.isLocalTxt) {
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clickable(
+                                indication = null,
+                                interactionSource = remember { MutableInteractionSource() },
+                                role = Role.Button,
+                                onClick = { onIntent(ReadBookIntent.MenuTocRegex) },
+                            ),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Toc,
+                            contentDescription = stringResource(R.string.txt_toc_rule),
+                            tint = tint,
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .width(1.dp)
+                            .height(20.dp)
+                            .background(tint.copy(alpha = 0.15f))
+                    )
+                }
+
+                // Text encoding
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clickable(
+                            indication = null,
+                            interactionSource = remember { MutableInteractionSource() },
+                            role = Role.Button,
+                            onClick = { onIntent(ReadBookIntent.ShowSheet(ReadBookSheet.Charset)) },
+                        ),
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Translate,
+                        contentDescription = stringResource(R.string.set_charset),
+                        tint = tint,
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
+
+                Box(
+                    modifier = Modifier
+                        .width(1.dp)
+                        .height(20.dp)
+                        .background(tint.copy(alpha = 0.15f))
+                )
             }
 
             // MoreVert - overflow menu
@@ -1559,6 +1645,57 @@ private fun RefreshActionButton(
 }
 
 @Composable
+private fun DownloadActionButton(
+    state: ReadBookUiState,
+    colors: ReadMenuColors,
+    onIntent: (ReadBookIntent) -> Unit,
+    backdrop: Backdrop?,
+) {
+    MenuTitleGlassButton(
+        onClick = { onIntent(ReadBookIntent.ShowSheet(ReadBookSheet.Download)) },
+        icon = Icons.Default.CloudDownload,
+        contentDescription = stringResource(R.string.offline_cache),
+        state = state,
+        colors = colors,
+        backdrop = backdrop,
+    )
+}
+
+@Composable
+private fun TxtTocRuleActionButton(
+    state: ReadBookUiState,
+    colors: ReadMenuColors,
+    onIntent: (ReadBookIntent) -> Unit,
+    backdrop: Backdrop?,
+) {
+    MenuTitleGlassButton(
+        onClick = { onIntent(ReadBookIntent.MenuTocRegex) },
+        icon = Icons.Default.Toc,
+        contentDescription = stringResource(R.string.txt_toc_rule),
+        state = state,
+        colors = colors,
+        backdrop = backdrop,
+    )
+}
+
+@Composable
+private fun CharsetActionButton(
+    state: ReadBookUiState,
+    colors: ReadMenuColors,
+    onIntent: (ReadBookIntent) -> Unit,
+    backdrop: Backdrop?,
+) {
+    MenuTitleGlassButton(
+        onClick = { onIntent(ReadBookIntent.ShowSheet(ReadBookSheet.Charset)) },
+        icon = Icons.Default.Translate,
+        contentDescription = stringResource(R.string.set_charset),
+        state = state,
+        colors = colors,
+        backdrop = backdrop,
+    )
+}
+
+@Composable
 private fun FloatingIconRow(
     state: ReadBookUiState,
     colors: ReadMenuColors,
@@ -1655,29 +1792,8 @@ private fun OverflowDropdownMenu(
         if (!state.isLocalBook) {
             RoundDropdownMenuItem(
                 text = stringResource(R.string.menu_refresh_all),
-                leadingIcon = menuIcon(AppIcons.Replay),
+                leadingIcon = menuIcon(Icons.Default.Replay),
                 onClick = { dismiss(); onIntent(ReadBookIntent.MenuRefreshAll) },
-            )
-        }
-
-        // TXT
-        if (state.isLocalTxt) {
-            RoundDropdownMenuItem(
-                text = stringResource(R.string.txt_toc_rule),
-                leadingIcon = menuIcon(Icons.Default.Toc),
-                onClick = { dismiss(); onIntent(ReadBookIntent.MenuTocRegex) },
-            )
-        }
-
-        // Local book
-        if (state.isLocalBook) {
-            RoundDropdownMenuItem(
-                text = stringResource(R.string.set_charset),
-                leadingIcon = menuIcon(Icons.Default.Translate),
-                onClick = {
-                    dismiss()
-                    onIntent(ReadBookIntent.ShowSheet(ReadBookSheet.Charset))
-                },
             )
         }
 
@@ -1691,25 +1807,15 @@ private fun OverflowDropdownMenu(
         )
         RoundDropdownMenuItem(
             text = stringResource(R.string.edit_content),
-            leadingIcon = menuIcon(AppIcons.Edit),
+            leadingIcon = menuIcon(Icons.Default.Edit),
             onClick = {
                 dismiss()
                 onIntent(ReadBookIntent.OpenContentEdit)
             },
         )
-        if (!state.isLocalBook) {
-            RoundDropdownMenuItem(
-                text = stringResource(R.string.offline_cache),
-                leadingIcon = menuIcon(Icons.Default.CloudDownload),
-                onClick = {
-                    dismiss()
-                    onIntent(ReadBookIntent.ShowSheet(ReadBookSheet.Download))
-                },
-            )
-        }
         RoundDropdownMenuItem(
             text = stringResource(R.string.update_toc),
-            leadingIcon = menuIcon(AppIcons.Replay),
+            leadingIcon = menuIcon(Icons.Default.Replay),
             onClick = { dismiss(); onIntent(ReadBookIntent.MenuUpdateToc) },
         )
         RoundDropdownMenuItem(
@@ -1737,7 +1843,7 @@ private fun OverflowDropdownMenu(
         )
         RoundDropdownMenuItem(
             text = stringResource(R.string.replace_rule_title_setting),
-            leadingIcon = menuIcon(AppIcons.Settings),
+            leadingIcon = menuIcon(Icons.Default.Settings),
             onClick = { dismiss(); onIntent(ReadBookIntent.MenuSettingReplace) },
         )
         RoundDropdownMenuItem(
@@ -1855,7 +1961,7 @@ private fun OverflowDropdownMenu(
 
         RoundDropdownMenuItem(
             text = stringResource(R.string.log),
-            leadingIcon = menuIcon(AppIcons.BugReport),
+            leadingIcon = menuIcon(Icons.Default.BugReport),
             onClick = {
                 dismiss()
                 onIntent(ReadBookIntent.ShowSheet(ReadBookSheet.AppLog))
@@ -2296,7 +2402,6 @@ private fun ReadMenuLiquidSlider(
         val rangeEnd = valueRange.endInclusive
         val range = rangeEnd - rangeStart
         val animationScope = rememberCoroutineScope()
-        var didDrag by remember { mutableStateOf(false) }
         val isLtr = LocalLayoutDirection.current == LayoutDirection.Ltr
         val dampedDragAnimation = remember(animationScope, trackWidth, rangeStart, rangeEnd, isLtr) {
             DampedDragAnimation(
@@ -2308,17 +2413,10 @@ private fun ReadMenuLiquidSlider(
                 pressedScale = 1.5f,
                 onDragStarted = {},
                 onDragStopped = {
-                    if (didDrag) {
-                        onValueChange(targetValue)
-                        onValueCommit?.invoke(targetValue)
-                    } else {
-                        onValueChangeFinished?.invoke()
-                    }
+                    onValueChange(targetValue)
+                    onValueCommit?.invoke(targetValue) ?: onValueChangeFinished?.invoke()
                 },
                 onDrag = { _, dragAmount ->
-                    if (!didDrag) {
-                        didDrag = dragAmount.x != 0f
-                    }
                     val delta = range * (dragAmount.x / trackWidth)
                     val nextValue = if (isLtr) {
                         (targetValue + delta).coerceIn(valueRange)
