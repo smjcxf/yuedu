@@ -6,7 +6,6 @@ import android.view.View
 import android.widget.FrameLayout
 import android.widget.ImageView
 import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -123,6 +122,10 @@ fun ReadBookRouteScreen(
                             state.menuConfig.readMenuBottomBarBlurMode == ReadMenuBlurMode.LiquidGlass
                     )
 
+    LaunchedEffect(state.menuVisible) {
+        controller.onMenuVisibilityChanged(state.menuVisible)
+    }
+
     // ── ActivityResult Launchers ──────────────────────────────────────
 
     val tocLauncher = rememberLauncherForActivityResult(TocActivityResult()) { result ->
@@ -166,14 +169,14 @@ fun ReadBookRouteScreen(
     }
 
     val readStyleImagePicker = rememberLauncherForActivityResult(
-        ActivityResultContracts.PickVisualMedia()
+        ActivityResultContracts.GetContent()
     ) { uri ->
         uri?.let { viewModel.onIntent(ReadBookIntent.ReadStyleImageSelected(it)) }
     }
 
     var pendingReadStyleImageIsNight by remember { mutableStateOf(false) }
     val readStyleImagePickerForMode = rememberLauncherForActivityResult(
-        ActivityResultContracts.PickVisualMedia()
+        ActivityResultContracts.GetContent()
     ) { uri ->
         uri?.let {
             viewModel.onIntent(ReadBookIntent.ReadStyleImageSelectedForMode(it, pendingReadStyleImageIsNight))
@@ -236,6 +239,18 @@ fun ReadBookRouteScreen(
         uri?.let { viewModel.onIntent(ReadBookIntent.ExportHttpTtsToFile(it)) }
     }
 
+    val importHighlightRulePicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        uri?.let { viewModel.onIntent(ReadBookIntent.HighlightRuleImportFileSelected(it)) }
+    }
+
+    val exportHighlightRulePicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        uri?.let { viewModel.onIntent(ReadBookIntent.ExportHighlightRulesToFile(it)) }
+    }
+
     val bookInfoLauncher = rememberLauncherForActivityResult(
         StartActivityContract(BookInfoActivity::class.java)
     ) { result ->
@@ -249,7 +264,7 @@ fun ReadBookRouteScreen(
 
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
-                if (!ReadConfig.autoSuggestDayNight) return@LifecycleEventObserver
+                if (!ReadConfig.autoSuggestDayNight || viewModel.isDayNightSwitchCoolingDown()) return@LifecycleEventObserver
                 if (lightSensor != null) {
                     listener = object : SensorEventListener {
                         override fun onSensorChanged(sensorEvent: SensorEvent?) {
@@ -368,15 +383,11 @@ fun ReadBookRouteScreen(
                                 booksDirPicker.launch(null)
                             }
                             is ReadBookEffect.OpenReadStyleImagePicker -> {
-                                readStyleImagePicker.launch(
-                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                                )
+                                readStyleImagePicker.launch("image/*")
                             }
                             is ReadBookEffect.OpenReadStyleImagePickerForMode -> {
                                 pendingReadStyleImageIsNight = effect.isNight
-                                readStyleImagePickerForMode.launch(
-                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                                )
+                                readStyleImagePickerForMode.launch("image/*")
                             }
                             is ReadBookEffect.OpenReadStyleImport -> {
                                 readStyleImportPicker.launch(
@@ -411,6 +422,19 @@ fun ReadBookRouteScreen(
 
                             is ReadBookEffect.OpenHttpTtsExportPicker -> {
                                 exportHttpTtsPicker.launch("httpTTS.json")
+                            }
+
+                            is ReadBookEffect.OpenHighlightRuleImportPicker -> {
+                                importHighlightRulePicker.launch(
+                                    arrayOf(
+                                        "application/json",
+                                        "text/plain"
+                                    )
+                                )
+                            }
+
+                            is ReadBookEffect.OpenHighlightRuleExportPicker -> {
+                                exportHighlightRulePicker.launch("highlightRule.json")
                             }
 
                             // All other effects — delegate to bridge (View/Window/Activity operations)
