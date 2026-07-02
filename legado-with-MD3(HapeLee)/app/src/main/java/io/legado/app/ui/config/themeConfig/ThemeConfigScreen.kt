@@ -322,6 +322,11 @@ fun ThemeConfigScreen(
                             }
                         )
                     }
+                    ClickableSettingItem(
+                        title = stringResource(R.string.theme_pack),
+                        description = stringResource(R.string.theme_pack_s),
+                        onClick = onNavigateToThemeManage
+                    )
                 }
 
                 SplicedColumnGroup {
@@ -331,7 +336,7 @@ fun ThemeConfigScreen(
                     )
                     if (selectedTheme == "12" && (!isMiuixEngine || useMiuixMonet)) {
                         ClickableSettingItem(
-                            title = stringResource(R.string.custom_theme),
+                            title = stringResource(R.string.custom_theme_colors),
                             onClick = onNavigateToCustomTheme
                         )
                     }
@@ -441,6 +446,22 @@ fun ThemeConfigScreen(
                         displayEntries = stringArrayResource(R.array.label_vis_mode),
                         entryValues = stringArrayResource(R.array.label_vis_mode_value),
                         onValueChange = { ThemeConfig.labelVisibilityMode = it }
+                    )
+                }
+
+                SplicedColumnGroup(title = stringResource(R.string.book_info_page)) {
+                    SwitchSettingItem(
+                        title = stringResource(R.string.book_info_follow_cover_color),
+                        description = stringResource(R.string.book_info_follow_cover_color_summary),
+                        checked = ThemeConfig.bookInfoFollowCoverColor,
+                        onCheckedChange = { ThemeConfig.bookInfoFollowCoverColor = it }
+                    )
+                    DropdownListSettingItem(
+                        title = stringResource(R.string.book_info_background_blur),
+                        selectedValue = ThemeConfig.bookInfoBackgroundBlur,
+                        displayEntries = stringArrayResource(R.array.book_info_background_blur_entries),
+                        entryValues = stringArrayResource(R.array.book_info_background_blur_values),
+                        onValueChange = { ThemeConfig.bookInfoBackgroundBlur = it }
                     )
                 }
 
@@ -787,16 +808,6 @@ fun ThemeConfigScreen(
                 }
             }
 
-            // Theme management
-            item {
-                SplicedColumnGroup(title = stringResource(R.string.theme_pack)) {
-                    ClickableSettingItem(
-                        title = stringResource(R.string.theme_pack),
-                        description = stringResource(R.string.theme_pack_s),
-                        onClick = onNavigateToThemeManage
-                    )
-                }
-            }
         }
     }
 

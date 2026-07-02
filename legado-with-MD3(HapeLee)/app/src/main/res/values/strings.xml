@@ -1471,6 +1471,8 @@
     <string name="theme_manage_export_failed">Could not export theme</string>
     <string name="theme_manage_import_success">Theme imported. Some changes require a restart.</string>
     <string name="theme_manage_import_failed">Could not import theme</string>
+    <string name="theme_manage_save_failed">Could not save theme</string>
+    <string name="theme_manage_apply_failed">Could not apply theme</string>
     <string name="theme_manage_save_current">Save Current Theme</string>
     <string name="theme_manage_save_current_summary">Save the current appearance settings as a theme</string>
     <string name="theme_manage_export_current">Export Current Theme</string>
@@ -1508,6 +1510,13 @@
     <string name="theme_manage_page_turn_animation">Page Turn Animation</string>
     <string name="theme_manage_label_visibility">Label Visibility</string>
     <string name="theme_manage_section_blur">Blur Effects</string>
+    <string name="book_info_page">Book details</string>
+    <string name="book_info_follow_cover_color">Use colors from book cover</string>
+    <string name="book_info_follow_cover_color_summary">Generate the book details color scheme from the cover</string>
+    <string name="book_info_background_blur">Blurred cover background</string>
+    <string name="book_info_background_blur_off">Off</string>
+    <string name="book_info_background_blur_on">On</string>
+    <string name="book_info_background_blur_off_for_default">Off when showing the default cover</string>
     <string name="theme_manage_top_bar_blur_radius">Top Bar Blur Radius</string>
     <string name="theme_manage_bottom_bar_blur_radius">Bottom Bar Blur Radius</string>
     <string name="theme_manage_top_bar_blur_opacity">Top Bar Blur Opacity</string>
