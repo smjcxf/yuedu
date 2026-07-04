@@ -63,6 +63,11 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -71,6 +76,7 @@ import coil.size.Size
 import io.legado.app.R
 import io.legado.app.constant.BookType
 import io.legado.app.data.entities.SearchBook
+import io.legado.app.model.BookCover as BookCoverModel
 import io.legado.app.ui.config.coverConfig.CoverConfig
 import io.legado.app.ui.config.themeConfig.ThemeConfig
 import io.legado.app.ui.main.homepage.modules.BannerModule
@@ -147,12 +153,9 @@ fun BookInfoScreen(
             canApplyCoverTheme = true
         }
     }
-    val bookColorTheme = rememberBookInfoColorTheme(
-        book = state.book,
-        enabled = canApplyCoverTheme,
-    )
+    val bookColorTheme = rememberBookInfoColorTheme(state.book)
 
-    BookInfoColorTheme(theme = bookColorTheme) {
+    BookInfoColorTheme(theme = bookColorTheme.takeIf { canApplyCoverTheme }) {
         BookInfoScreenContent(
             state = state,
             onIntent = onIntent,
@@ -333,6 +336,17 @@ private fun BookInfoScreenContent(
                 onAddAsNew = { newBook, toc ->
                     onIntent(BookInfoIntent.AddSourceAsNewBook(newBook, toc))
                 },
+                onReplaceConflict = { oldBook, source, newBook, toc, options ->
+                    onIntent(
+                        BookInfoIntent.ReplaceConflictingBook(
+                            oldBook = oldBook,
+                            source = source,
+                            book = newBook,
+                            toc = toc,
+                            options = options,
+                        )
+                    )
+                },
             )
         }
         BookInfoSheet.ReadRecord -> BookReadRecordSheet(
@@ -468,20 +482,38 @@ private fun BookInfoTransparentTopAppBar(
 @Composable
 private fun rememberBookInfoColorTheme(
     book: BookInfoBookUi?,
-    enabled: Boolean,
 ): ThemeOverrideState? {
     if (
-        !enabled ||
-        !ThemeConfig.bookInfoFollowCoverColor ||
-        usesDefaultBookCover(book?.coverPath)
+        book == null ||
+        !ThemeConfig.bookInfoFollowCoverColor
     ) {
         return null
     }
 
     val imageLoader = koinInject<ImageLoader>()
-    val coverPath = book?.coverPath
-    val sourceOrigin = book?.origin
-    val loadOnlyWifi = CoverConfig.loadCoverOnlyWifi
+    val isNight = LegadoTheme.isDark
+    val useDefaultCover = usesDefaultBookCover(book.coverPath)
+    val defaultCoverPaths =
+        if (isNight) CoverConfig.defaultCoverDark else CoverConfig.defaultCover
+    val coverPath = remember(
+        book.name,
+        book.author,
+        book.coverPath,
+        useDefaultCover,
+        isNight,
+        defaultCoverPaths,
+    ) {
+        if (useDefaultCover) {
+            BookCoverModel.getRandomDefaultPath(
+                seed = book.name,
+                isNight = isNight,
+            )
+        } else {
+            book.coverPath
+        }
+    } ?: return null
+    val sourceOrigin = if (useDefaultCover) null else book.origin
+    val loadOnlyWifi = !useDefaultCover && CoverConfig.loadCoverOnlyWifi
     val requestKey = remember(coverPath, sourceOrigin, loadOnlyWifi) {
         listOf(coverPath, sourceOrigin, loadOnlyWifi)
     }
@@ -509,18 +541,18 @@ private fun BookInfoTopBarActions(
         TopBarActionButton(
             onClick = { onMenuAction(BookInfoMenuAction.Edit) },
             imageVector = Icons.Default.Edit,
-            contentDescription = "编辑"
+            contentDescription = stringResource(R.string.edit)
         )
     }
     TopBarActionButton(
         onClick = { onMenuAction(BookInfoMenuAction.Share) },
         imageVector = Icons.Default.Share,
-        contentDescription = "分享"
+        contentDescription = stringResource(R.string.share)
     )
     TopBarActionButton(
         onClick = { onShowMenuChange(true) },
         imageVector = Icons.Default.MoreVert,
-        contentDescription = "更多"
+        contentDescription = stringResource(R.string.more_actions)
     )
     BookInfoOverflowMenu(
         expanded = showMenu,
@@ -537,18 +569,10 @@ private fun BookInfoTopBarActions(
 private fun BookInfoBackdrop(
     book: BookInfoBookUi,
 ) {
-    val initiallyUsesDefaultCover = usesDefaultBookCover(book.coverPath)
-    var usesDefaultCover by remember(
-        book.coverPath,
-        initiallyUsesDefaultCover,
-    ) {
-        mutableStateOf(initiallyUsesDefaultCover)
-    }
-    val blurBackground = when (ThemeConfig.bookInfoBackgroundBlur) {
-        ThemeConfig.BOOK_INFO_BACKGROUND_BLUR_OFF -> false
-        ThemeConfig.BOOK_INFO_BACKGROUND_BLUR_OFF_FOR_DEFAULT -> !usesDefaultCover
-        else -> true
-    }
+    val backgroundMode = ThemeConfig.bookInfoBackgroundBlur
+    val showBackgroundCover =
+        backgroundMode != ThemeConfig.BOOK_INFO_BACKGROUND_COVER_HIDDEN
+    val blurBackground = backgroundMode != ThemeConfig.BOOK_INFO_BACKGROUND_BLUR_OFF
 
     val backdropState = remember(
         book.name,
@@ -568,35 +592,40 @@ private fun BookInfoBackdrop(
         LegadoTheme.seedColor,
         0.42f
     )
-    Box(modifier = Modifier.fillMaxSize()) {
-        Crossfade(
-            targetState = backdropState,
-            animationSpec = tween(800),
-            label = "BackdropCrossfade"
-        ) { currentBook ->
-            BookCoverImage(
-                name = currentBook.name,
-                author = currentBook.author,
-                path = currentBook.coverPath,
-                sourceOrigin = currentBook.sourceOrigin,
-                memoryCacheKey = currentBook.coverPath?.let { "$it#book-info-backdrop" },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(480.dp)
-                    .then(
-                        if (blurBackground) {
-                            Modifier.blur(24.dp)
-                        } else {
-                            Modifier
-                        }
-                ),
-                contentScale = ContentScale.Crop,
-                showLoadingPlaceholder = false,
-                onDefaultCoverVisibilityChange = { usesDefaultCover = it },
-                requestBuilder = {
-                    size(Size(384, 384))
-                }
-            )
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .clearAndSetSemantics { }
+    ) {
+        if (showBackgroundCover) {
+            Crossfade(
+                targetState = backdropState,
+                animationSpec = tween(800),
+                label = "BackdropCrossfade"
+            ) { currentBook ->
+                BookCoverImage(
+                    name = currentBook.name,
+                    author = currentBook.author,
+                    path = currentBook.coverPath,
+                    sourceOrigin = currentBook.sourceOrigin,
+                    memoryCacheKey = currentBook.coverPath?.let { "$it#book-info-backdrop" },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(480.dp)
+                        .then(
+                            if (blurBackground) {
+                                Modifier.blur(24.dp)
+                            } else {
+                                Modifier
+                            }
+                        ),
+                    contentScale = ContentScale.Crop,
+                    showLoadingPlaceholder = false,
+                    requestBuilder = {
+                        size(Size(384, 384))
+                    }
+                )
+            }
         }
         Box(
             modifier = Modifier
@@ -735,6 +764,7 @@ private fun BookInfoHeader(
     animatedVisibilityScope: AnimatedVisibilityScope?,
     sharedCoverKey: String?,
 ) {
+    val coverDescription = stringResource(R.string.a11y_book_cover_actions, book.name)
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -764,6 +794,10 @@ private fun BookInfoHeader(
                     modifier = Modifier
                         .width(112.dp)
                         .combinedClickable(onClick = onCoverClick, onLongClick = onCoverLongClick)
+                        .semantics {
+                            role = Role.Button
+                            contentDescription = coverDescription
+                        }
                 ) {
                     CoilBookCover(
                         name = book.name,
@@ -964,7 +998,10 @@ private fun BookInfoActionCard(
     onClick: () -> Unit
 ) {
     GlassCard(
-        modifier = modifier,
+        modifier = modifier.semantics(mergeDescendants = true) {
+            role = Role.Button
+            contentDescription = label
+        },
         onLongClick = onLongClick,
         onClick = onClick,
         containerColor = LegadoTheme.colorScheme.surfaceContainerLow,
@@ -1201,7 +1238,7 @@ private fun RelatedBooksBanner(
                 SmallTonalButton(
                     onClick = onMoreClick,
                     icon = Icons.AutoMirrored.Filled.ArrowForward,
-                    contentDescription = "more",
+                    contentDescription = stringResource(R.string.a11y_related_books_more, title),
                 )
             }
         }

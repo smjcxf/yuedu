@@ -40,11 +40,13 @@ import io.legado.app.data.repository.ReadRecordRepository
 import io.legado.app.data.repository.ReadSettingsRepository
 import io.legado.app.data.repository.ReadStyleRepository
 import io.legado.app.data.repository.RemoteBookRepository
+import io.legado.app.data.repository.ReplaceRuleRepository
 import io.legado.app.data.repository.RssRepository
 import io.legado.app.data.repository.SearchContentRepository
 import io.legado.app.data.repository.SearchRepository
 import io.legado.app.data.repository.SearchRepositoryImpl
 import io.legado.app.data.repository.SettingsRepository
+import io.legado.app.data.repository.TxtTocRuleRepository
 import io.legado.app.data.repository.TranslationCacheRepositoryImpl
 import io.legado.app.data.repository.UploadRepository
 import io.legado.app.data.repository.WebDavBackupRepository
@@ -81,6 +83,7 @@ import io.legado.app.domain.usecase.BatchCacheDownloadUseCase
 import io.legado.app.domain.usecase.CacheBookChaptersUseCase
 import io.legado.app.domain.usecase.ChangeBookSourceUseCase
 import io.legado.app.domain.usecase.ChangeSourceSearchUseCase
+import io.legado.app.domain.usecase.CleanSelectedTextUseCase
 import io.legado.app.domain.usecase.ClearBookCacheUseCase
 import io.legado.app.domain.usecase.CoverAlbumUseCase
 import io.legado.app.domain.usecase.DeleteBooksUseCase
@@ -132,12 +135,13 @@ import io.legado.app.ui.book.search.SearchViewModel
 import io.legado.app.ui.book.searchContent.SearchContentViewModel
 import io.legado.app.ui.book.toc.TocViewModel
 import io.legado.app.ui.book.toc.rule.TxtTocRuleViewModel
+import io.legado.app.ui.book.toc.rule.preview.TxtTocRulePreviewViewModel
 import io.legado.app.ui.config.ai.AiConfigViewModel
 import io.legado.app.ui.config.ai.AiModelEditViewModel
 import io.legado.app.ui.config.ai.AiProviderEditViewModel
 import io.legado.app.ui.config.backupConfig.BackupConfigViewModel
-import io.legado.app.ui.config.coverConfig.CoverAlbumManageViewModel
 import io.legado.app.ui.config.bookshelfConfig.BookshelfManageScreenConfig
+import io.legado.app.ui.config.coverConfig.CoverAlbumManageViewModel
 import io.legado.app.ui.config.coverConfig.CoverConfigViewModel
 import io.legado.app.ui.config.downloadCacheConfig.DownloadCacheConfigViewModel
 import io.legado.app.ui.config.otherConfig.OtherConfigViewModel
@@ -186,6 +190,7 @@ val appModule = module {
     singleOf(::BookSourceRepository)
     singleOf(::BookshelfRepository)
     singleOf(::DictRuleRepository)
+    singleOf(::TxtTocRuleRepository)
     singleOf(::SearchContentRepository)
     singleOf(::RemoteBookRepository)
     singleOf(::SettingsRepository)
@@ -256,6 +261,8 @@ val appModule = module {
     singleOf(::ChangeSourceSearchUseCase)
     singleOf(::GetChapterContentUseCase)
     singleOf(::GenerateChapterSummaryUseCase)
+    singleOf(::CleanSelectedTextUseCase)
+    singleOf(::ReplaceRuleRepository)
     single<DictionaryGateway> { DictionaryRepositoryImpl() }
     singleOf(::TranslateChapterUseCase)
     singleOf(::AiChatGenerationUseCase)
@@ -299,6 +306,7 @@ val appModule = module {
     viewModelOf(::ReplaceRuleViewModel)
     viewModelOf(::AllBookmarkViewModel)
     viewModelOf(::TxtTocRuleViewModel)
+    viewModel { TxtTocRulePreviewViewModel(app = get(), repository = get()) }
     viewModelOf(::OtherConfigViewModel)
     viewModelOf(::ReadConfigViewModel)
     viewModelOf(::CoverConfigViewModel)
@@ -342,7 +350,11 @@ val appModule = module {
             readAloudSettingsRepository = get(),
             localPreferencesRepository = get(),
             highlightRuleRepository = get(),
-            uploadRepository = get()
+            uploadRepository = get(),
+            changeBookSourceUseCase = get(),
+            generateChapterSummaryUseCase = get(),
+            cleanSelectedTextUseCase = get(),
+            replaceRuleRepository = get(),
         )
     }
     viewModelOf(::ChangeCoverViewModel)

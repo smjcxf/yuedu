@@ -127,7 +127,13 @@ fun MainScreen(
     onNavigateToBookInfo: (name: String, author: String, bookUrl: String, origin: String?, coverPath: String?, sharedCoverKey: String?) -> Unit,
     onNavigateToExploreShow: (title: String?, sourceUrl: String, exploreUrl: String?) -> Unit,
     onNavigateToRssSort: (sourceUrl: String, sortUrl: String?, key: String?) -> Unit,
-    onNavigateToRssRead: (title: String?, origin: String, link: String?, openUrl: String?) -> Unit,
+    onNavigateToRssRead: (
+        title: String?,
+        origin: String,
+        link: String?,
+        openUrl: String?,
+        startPage: Boolean
+    ) -> Unit,
     onNavigateToRssFavorites: () -> Unit,
     onNavigateToRuleSub: () -> Unit,
     onNavigateToReadRecord: () -> Unit,
@@ -266,7 +272,9 @@ fun MainScreen(
                                     Icons.AutoMirrored.Filled.MenuOpen
                                 else
                                     Icons.Default.Menu,
-                                contentDescription = null
+                                contentDescription = stringResource(
+                                    if (expanded) R.string.collapse else R.string.expand
+                                )
                             )
                         }
 
@@ -286,10 +294,11 @@ fun MainScreen(
                     val selected = pagerState.targetPage == index
                     var showGroupMenu by remember { mutableStateOf(false) }
                     val haptic = LocalHapticFeedback.current
+                    val destinationLabel = stringResource(destination.labelId)
 
                     WideNavigationRailItem(
                         modifier = Modifier.semantics(mergeDescendants = true) {
-                            contentDescription = "nav_${destination.route}"
+                            contentDescription = destinationLabel
                         },
                         railExpanded = navState.targetValue == WideNavigationRailValue.Expanded,
                         selected = selected,
@@ -349,9 +358,10 @@ fun MainScreen(
                         destinations.forEachIndexed { index, destination ->
                             val selected = pagerState.targetPage == index
                             val customIconPath = destination.customIconPath
+                            val destinationLabel = stringResource(destination.labelId)
                             AppNavigationBarItem(
                                 modifier = Modifier.semantics(mergeDescendants = true) {
-                                    contentDescription = "nav_${destination.route}"
+                                    contentDescription = destinationLabel
                                 },
                                 selected = selected,
                                 onClick = {
@@ -469,8 +479,8 @@ fun MainScreen(
                                 onOpenSort = { sourceUrl, sortUrl, key ->
                                     onNavigateToRssSort(sourceUrl, sortUrl, key)
                                 },
-                                onOpenRead = { title, origin, link, openUrl ->
-                                    onNavigateToRssRead(title, origin, link, openUrl)
+                                onOpenRead = { title, origin, link, openUrl, startPage ->
+                                    onNavigateToRssRead(title, origin, link, openUrl, startPage)
                                 },
                                 onOpenFavorites = onNavigateToRssFavorites,
                                 onOpenRuleSub = onNavigateToRuleSub
@@ -532,6 +542,7 @@ fun MainScreen(
                             destinations.forEachIndexed { index, destination ->
                                 val selected = pagerState.targetPage == index
                                 val hasCustomIcon = destination.customIconPath.isNotEmpty()
+                                val destinationLabel = stringResource(destination.labelId)
                                 FloatingBottomBarItem(
                                     onClick = {
                                         handleMainDestinationClick(index, destination)
@@ -539,7 +550,7 @@ fun MainScreen(
                                     modifier = Modifier
                                         .defaultMinSize(minWidth = 76.dp)
                                         .semantics(mergeDescendants = true) {
-                                            contentDescription = "nav_${destination.route}"
+                                            contentDescription = destinationLabel
                                         }
                                 ) {
                                     NavigationIcon(

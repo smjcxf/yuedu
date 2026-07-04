@@ -71,7 +71,6 @@ fun BookCoverImage(
     onLoadFinish: (() -> Unit)? = null,
     onSuccess: (() -> Unit)? = null,
     onError: (() -> Unit)? = null,
-    onDefaultCoverVisibilityChange: ((Boolean) -> Unit)? = null,
     sharedCoverKey: String? = null,
     requestBuilder: ImageRequest.Builder.() -> Unit = {},
 ) {
@@ -93,6 +92,12 @@ fun BookCoverImage(
     }
 
     val hasCustomDefault = !randomPath.isNullOrBlank()
+    val customDefaultMemoryCacheKey =
+        if (finalPath == null && sharedCoverKey != null) {
+            "$sharedCoverKey:default:$randomPath"
+        } else {
+            randomPath
+        }
     var isOnlineCoverLoaded by remember(finalPath) { mutableStateOf(false) }
     var onlineCoverLoadFailed by remember(finalPath) { mutableStateOf(false) }
 
@@ -103,20 +108,18 @@ fun BookCoverImage(
         }
     }
 
+    val isUsingDefaultCover = finalPath == null || onlineCoverLoadFailed
+    val showLoadingDefault = sharedCoverKey == null && !isOnlineCoverLoaded
+    val showCustomDefault = hasCustomDefault &&
+        !isOnlineCoverLoaded &&
+        (isUsingDefaultCover || showLoadingDefault)
     val showDefaultIcon = !hasCustomDefault &&
         (
-            finalPath == null ||
-                onlineCoverLoadFailed ||
-                (showLoadingPlaceholder && !isOnlineCoverLoaded)
+            isUsingDefaultCover ||
+                (showLoadingPlaceholder && showLoadingDefault)
         )
-    val isDefaultCoverVisible =
-        (hasCustomDefault && !isOnlineCoverLoaded) || showDefaultIcon
-    LaunchedEffect(isDefaultCoverVisible) {
-        onDefaultCoverVisibilityChange?.invoke(isDefaultCoverVisible)
-    }
-
     Box(modifier = modifier) {
-        if (hasCustomDefault && !isOnlineCoverLoaded) {
+        if (showCustomDefault) {
             AsyncImage(
                 model = buildCoverImageRequest(
                     context = context,
@@ -124,7 +127,7 @@ fun BookCoverImage(
                     sourceOrigin = null,
                     loadOnlyWifi = false,
                     crossfade = showLoadingPlaceholder,
-                    memoryCacheKey = randomPath,
+                    memoryCacheKey = customDefaultMemoryCacheKey,
                 ),
                 contentDescription = null,
                 imageLoader = koinInject(),
@@ -152,7 +155,9 @@ fun BookCoverImage(
                     sourceOrigin = sourceOrigin,
                     loadOnlyWifi = CoverConfig.loadCoverOnlyWifi,
                     crossfade = showLoadingPlaceholder,
-                    memoryCacheKey = memoryCacheKey ?: finalPath,
+                    memoryCacheKey = sharedCoverKey?.let {
+                        "$it:cover:${memoryCacheKey ?: finalPath}"
+                    } ?: memoryCacheKey ?: finalPath,
                     configure = requestBuilder,
                 ),
                 contentDescription = null,
@@ -282,7 +287,11 @@ fun CoilBookCover(
         if (
             finalPath == null ||
             onlineCoverLoadFailed ||
-            (showLoadingPlaceholder && !isOnlineCoverLoaded)
+            (
+                sharedCoverKey == null &&
+                    showLoadingPlaceholder &&
+                    !isOnlineCoverLoaded
+                )
         ) {
             CoverTextOverlay(
                 name = name,
