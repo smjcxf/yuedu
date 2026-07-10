@@ -1345,9 +1345,8 @@ class ReadBookViewModel(
 
     private fun handleOnResume() {
         // Read time tracking
-        ReadBook.readStartTime = System.currentTimeMillis()
-        ReadBook.initReadTime()
-        ReadBook.startAutoSaveSession()
+        ReadBook.isUiActive = true
+        ReadBook.startReadSession()
 
         // Web book progress sync
         ReadBook.webBookProgress?.let {
@@ -1372,9 +1371,12 @@ class ReadBookViewModel(
         _effects.tryEmit(ReadBookEffect.StopAutoPage)
 
         // Read time tracking
+        ReadBook.isUiActive = false
         ReadBook.saveRead()
-        ReadBook.stopAutoSaveSession()
-        ReadBook.commitReadSession()
+        if (!BaseReadAloudService.isPlay()) {
+            ReadBook.stopAutoSaveSession()
+            ReadBook.commitReadSession()
+        }
         ReadBook.cancelPreDownloadTask()
 
         // View-layer
@@ -5562,8 +5564,10 @@ class ReadBookViewModel(
 
     private fun toggleTranslation() {
         val book = ReadBook.book ?: return
-        book.setTranslationMode(!book.getTranslationMode())
+        val enabled = !book.getTranslationMode()
+        book.setTranslationMode(enabled)
         book.save()
+        _uiState.update { it.copy(translationMode = enabled) }
         ReadBook.loadContent(false)
     }
 
