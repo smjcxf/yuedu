@@ -967,7 +967,7 @@
     <string name="tts_speech_add">語速加</string>
     <string name="open_sys_dir_picker_error">打開系統資料夾選擇器出錯，自動打開應用程式資料夾選擇器</string>
     <string name="open_sys_doc_picker_error">打開系統檔案選擇器出錯，自動打開應用文件選擇器</string>
-    <string name="expand_text_menu">展開文字選擇選單</string>
+    <string name="expand_text_menu">多行展示</string>
     <string name="search_content_size">搜尋結果</string>
     <string name="search_content_empty">搜索内容为空，检查净化/简繁设置</string>
     <string name="book_tree_uri_t">書籍儲存位置</string>
@@ -1539,16 +1539,18 @@
     <string name="clipboard_empty">剪貼簿為空</string>
     <string name="clipboard_empty_or_invalid">剪貼簿為空或格式無效</string>
     <string name="invalid_format">無效格式</string>
+    <string name="regex_is_empty">正則表達式為空</string>
+    <string name="example_is_empty">範例為空</string>
+    <string name="invalid_regex">正則表達式無效</string>
     <string name="complete_required_information">請填寫所有必填資訊</string>
     <string name="cannot_open_url">無法直接開啟此 URL</string>
     <string name="open_by_browser">已切換到瀏覽器開啟</string>
     <string name="open_by_webview">已切換到 WebView 開啟</string>
-    <string name="show_select_menu_icon">顯示文字選擇選單圖示</string>
-    <string name="text_select_menu_filter">文字選擇選單篩選</string>
-    <string name="text_select_menu_filter_desc">篩選選擇選單中顯示的第三方應用</string>
+    <string name="show_select_menu_icon">展示圖示</string>
+
     <string name="show_all">全部顯示</string>
     <string name="hide_all">全部隱藏</string>
-    <string name="no_apps_found">找不到支援文字操作的第三方應用</string>
+
     <string name="is_event_listener">事件監聽器</string>
     <string name="custom_button">自訂按鈕</string>
     <string name="rule_call_back">回呼 JS（callBackJs）</string>
@@ -1625,8 +1627,9 @@
     <string name="theme_manage_section_blur">模糊效果</string>
     <string name="book_info_page">書籍詳情頁</string>
     <string name="book_info_follow_cover_color">介面顏色跟隨封面取色</string>
-    <string name="book_info_follow_cover_color_summary">從書籍封面擷取詳情頁配色</string>
-    <string name="book_info_background_blur">背景設定</string>
+    <string name="book_info_follow_cover_color_summary">僅在顯示背景封面時生效</string>
+    <string name="book_info_network_cover_background">網路封面背景設定</string>
+    <string name="book_info_default_cover_background">預設封面背景設定</string>
     <string name="book_info_background_blur_off">關閉模糊封面</string>
     <string name="book_info_background_blur_on">開啟模糊封面</string>
     <string name="book_info_background_blur_off_for_default">不顯示背景封面</string>
@@ -2374,4 +2377,8 @@
     <string name="about_open_github">開啟 GitHub</string>
     <string name="edit_menu_items">編輯選單項</string>
     <string name="edit_select_menu">編輯選擇選單</string>
+    <string name="primary_menu">一級選單</string>
+    <string name="collapsed_menu">折疊選單</string>
+    <string name="hidden_items">已隱藏項目</string>
+    <string name="merged_in_multiline">多行模式下將合併顯示</string>
 </resources>

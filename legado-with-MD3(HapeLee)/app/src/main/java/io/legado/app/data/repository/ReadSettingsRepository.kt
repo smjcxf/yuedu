@@ -53,7 +53,6 @@ data class ReadPreferences(
     val disableReturnKey: Boolean = false,
     val expandTextMenu: Boolean = false,
     val showSelectMenuIcon: Boolean = true,
-    val textSelectMenuFilter: String = "",
     val showReadTitleAddition: Boolean = true,
     val autoReadSpeed: Int = 10,
     val prevKeys: String = "",
@@ -98,6 +97,7 @@ data class ReadPreferences(
     val readMenuBlurRadius: Int = 24,
     val readMenuBlurAlpha: Int = 60,
     val readMenuBlurColor: Int = 0,
+    val readMenuBlurColorNight: Int = 0,
     val readMenuPaletteStyle: String = "",
     val readMenuLensRadius: Float = 24f,
     val readMenuBorderWidth: Int = 0,
@@ -239,9 +239,6 @@ class ReadSettingsRepository(
     suspend fun setShowSelectMenuIcon(value: Boolean) =
         settingsRepository.putBoolean(PreferKey.showSelectMenuIcon, value)
 
-    suspend fun setTextSelectMenuFilter(value: String) =
-        settingsRepository.putString(PreferKey.textSelectMenuFilter, value)
-
     suspend fun setShowReadTitleAddition(value: Boolean) =
         settingsRepository.putBoolean(PreferKey.showReadTitleAddition, value)
 
@@ -353,6 +350,9 @@ class ReadSettingsRepository(
     suspend fun setReadMenuBlurColor(value: Int) =
         settingsRepository.putInt(PreferKey.readMenuBlurColor, value)
 
+    suspend fun setReadMenuBlurColorNight(value: Int) =
+        settingsRepository.putInt(PreferKey.readMenuBlurColorNight, value)
+
     suspend fun setReadMenuPaletteStyle(value: String) =
         settingsRepository.putString(PreferKey.readMenuPaletteStyle, value)
 
@@ -434,7 +434,6 @@ class ReadSettingsRepository(
             disableReturnKey = this[Keys.DisableReturnKey] ?: false,
             expandTextMenu = this[Keys.ExpandTextMenu] ?: false,
             showSelectMenuIcon = this[Keys.ShowSelectMenuIcon] ?: true,
-            textSelectMenuFilter = this[Keys.TextSelectMenuFilter] ?: "",
             showReadTitleAddition = this[Keys.ShowReadTitleAddition] ?: true,
             autoReadSpeed = this[Keys.AutoReadSpeed] ?: 10,
             prevKeys = this[Keys.PrevKeys] ?: "",
@@ -483,6 +482,7 @@ class ReadSettingsRepository(
             readMenuBlurRadius = this[Keys.ReadMenuBlurRadius] ?: 24,
             readMenuBlurAlpha = this[Keys.ReadMenuBlurAlpha] ?: 60,
             readMenuBlurColor = this[Keys.ReadMenuBlurColor] ?: 0,
+            readMenuBlurColorNight = this[Keys.ReadMenuBlurColorNight] ?: 0,
             readMenuPaletteStyle = this[Keys.ReadMenuPaletteStyle] ?: "",
             readMenuLensRadius = this[Keys.ReadMenuLensRadius] ?: 24f,
             readMenuBorderWidth = this[Keys.ReadMenuBorderWidth] ?: 0,
@@ -535,7 +535,6 @@ class ReadSettingsRepository(
         val DisableReturnKey = booleanPreferencesKey(PreferKey.disableReturnKey)
         val ExpandTextMenu = booleanPreferencesKey(PreferKey.expandTextMenu)
         val ShowSelectMenuIcon = booleanPreferencesKey(PreferKey.showSelectMenuIcon)
-        val TextSelectMenuFilter = stringPreferencesKey(PreferKey.textSelectMenuFilter)
         val ShowReadTitleAddition = booleanPreferencesKey(PreferKey.showReadTitleAddition)
         val AutoReadSpeed = intPreferencesKey(PreferKey.autoReadSpeed)
         val PrevKeys = stringPreferencesKey(PreferKey.prevKeys)
@@ -583,6 +582,7 @@ class ReadSettingsRepository(
         val ReadMenuBlurRadius = intPreferencesKey(PreferKey.readMenuBlurRadius)
         val ReadMenuBlurAlpha = intPreferencesKey(PreferKey.readMenuBlurAlpha)
         val ReadMenuBlurColor = intPreferencesKey(PreferKey.readMenuBlurColor)
+        val ReadMenuBlurColorNight = intPreferencesKey(PreferKey.readMenuBlurColorNight)
         val ReadMenuPaletteStyle = stringPreferencesKey(PreferKey.readMenuPaletteStyle)
         val ReadMenuLensRadius = floatPreferencesKey(PreferKey.readMenuLensRadius)
         val ReadMenuBorderWidth = intPreferencesKey(PreferKey.readMenuBorderWidth)

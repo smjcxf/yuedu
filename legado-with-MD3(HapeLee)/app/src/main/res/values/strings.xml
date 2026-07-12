@@ -1049,6 +1049,7 @@
     <string name="list_src">List source code</string>
     <string name="title_font_size">Font Size</string>
     <string name="title_color">Title Color</string>
+    <string name="reset_to_body_color">Reset to body text color</string>
     <string name="title_margin_top">Margin Top</string>
     <string name="title_margin_bottom">Margin Bottom</string>
     <string name="show">Show</string>
@@ -1088,6 +1089,9 @@
     <string name="clipboard_empty">Clipboard is empty</string>
     <string name="clipboard_empty_or_invalid">Clipboard is empty or has an invalid format</string>
     <string name="invalid_format">Invalid format</string>
+    <string name="regex_is_empty">Regex is empty</string>
+    <string name="example_is_empty">Example is empty</string>
+    <string name="invalid_regex">Invalid regex</string>
     <string name="complete_required_information">Fill in all required information</string>
     <string name="export_success">export success</string>
     <string name="path">path</string>
@@ -1136,13 +1140,12 @@
     <string name="tts_speech_add">Increase speech speed</string>
     <string name="open_sys_dir_picker_error">Error opening system folder selector, automatically open application folder selector</string>
     <string name="open_sys_doc_picker_error">Error opening system file selector, automatically open application file selector</string>
-    <string name="expand_text_menu">Expand Text Selection Menu</string>
-    <string name="show_select_menu_icon">Show Text Selection Menu Icons</string>
-    <string name="text_select_menu_filter">Text Selection Menu Filter</string>
-    <string name="text_select_menu_filter_desc">Filter the third-party apps displayed in the selection menu</string>
+    <string name="expand_text_menu">Multiline Show</string>
+    <string name="show_select_menu_icon">Show Icons</string>
+
     <string name="show_all">Show All</string>
     <string name="hide_all">Hide All</string>
-    <string name="no_apps_found">No third-party apps supporting text actions found</string>
+
     <string name="book_tree_uri_t">Book Save Location</string>
     <string name="book_tree_uri_s">Save location for books opened from other apps</string>
     <string name="select_book_folder">Select the folder where the books are saved</string>
@@ -1516,8 +1519,9 @@
     <string name="theme_manage_section_blur">Blur Effects</string>
     <string name="book_info_page">Book details</string>
     <string name="book_info_follow_cover_color">Use colors from book cover</string>
-    <string name="book_info_follow_cover_color_summary">Generate the book details color scheme from the cover</string>
-    <string name="book_info_background_blur">Background setting</string>
+    <string name="book_info_follow_cover_color_summary">Applied only while a background cover is visible</string>
+    <string name="book_info_network_cover_background">Network cover background</string>
+    <string name="book_info_default_cover_background">Default cover background</string>
     <string name="book_info_background_blur_off">Show cover without blur</string>
     <string name="book_info_background_blur_on">Show blurred cover</string>
     <string name="book_info_background_blur_off_for_default">Hide background cover</string>
@@ -2462,4 +2466,8 @@
     <string name="about_open_github">Open GitHub</string>
     <string name="edit_menu_items">Edit Menu Items</string>
     <string name="edit_select_menu">Edit Selection Menu</string>
+    <string name="primary_menu">Primary Menu</string>
+    <string name="collapsed_menu">Collapsed Menu</string>
+    <string name="hidden_items">Hidden Items</string>
+    <string name="merged_in_multiline">Merged in multiline mode</string>
 </resources>

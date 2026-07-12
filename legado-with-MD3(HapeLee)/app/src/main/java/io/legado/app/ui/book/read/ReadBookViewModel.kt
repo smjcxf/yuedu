@@ -37,12 +37,12 @@ import io.legado.app.data.repository.ReadBookStyleConfigRepository
 import io.legado.app.data.repository.ReadPreferences
 import io.legado.app.data.repository.ReadSettingsRepository
 import io.legado.app.data.repository.UploadRepository
-import io.legado.app.domain.gateway.BookContentProcessGateway
 import io.legado.app.domain.gateway.AiPromptPresetGateway
-import io.legado.app.domain.model.TextProcessAction
-import io.legado.app.domain.model.TextProcessAnchor
+import io.legado.app.domain.gateway.BookContentProcessGateway
 import io.legado.app.domain.model.AiTaskType
 import io.legado.app.domain.model.ReadingProgress
+import io.legado.app.domain.model.TextProcessAction
+import io.legado.app.domain.model.TextProcessAnchor
 import io.legado.app.domain.usecase.AiTextFactoryUseCase
 import io.legado.app.domain.usecase.ChangeBookSourceUseCase
 import io.legado.app.domain.usecase.CleanSelectedTextUseCase
@@ -2042,6 +2042,7 @@ class ReadBookViewModel(
                 readMenuBorderColorNight = ReadBookConfig.readMenuBorderColorNight,
                 readMenuBlurAlpha = ReadBookConfig.readMenuBlurAlpha,
                 readMenuBlurColor = ReadBookConfig.readMenuBlurColor,
+                readMenuBlurColorNight = ReadBookConfig.readMenuBlurColorNight,
                 readMenuPaletteStyle = ReadBookConfig.readMenuPaletteStyle,
                 readMenuBlurRadius = ReadBookConfig.readMenuBlurRadius,
                 readMenuLensRadius = ReadBookConfig.readMenuLensRadius,
@@ -4343,6 +4344,7 @@ class ReadBookViewModel(
             is ConfigUpdate.TitleTopSpacing -> ReadBookConfig.titleTopSpacing = update.value
             is ConfigUpdate.TitleBottomSpacing -> ReadBookConfig.titleBottomSpacing = update.value
             is ConfigUpdate.TitleColor -> ReadBookConfig.titleColor = update.color
+            is ConfigUpdate.TitleColorNight -> ReadBookConfig.titleColorNight = update.color
             is ConfigUpdate.TitleFont -> ReadBookConfig.titleFont = update.path
             is ConfigUpdate.TitleSegType -> ReadBookConfig.titleSegType = update.value
             is ConfigUpdate.TitleSegDistance -> ReadBookConfig.titleSegDistance = update.value
@@ -4360,7 +4362,9 @@ class ReadBookViewModel(
             is ConfigUpdate.HeaderFont -> ReadBookConfig.headerFont = update.path
             is ConfigUpdate.HeaderFontSize -> ReadBookConfig.headerFontSize = update.value
             is ConfigUpdate.TipHeaderColor -> ReadBookConfig.tipHeaderColor = update.color
+            is ConfigUpdate.TipHeaderColorNight -> ReadBookConfig.tipHeaderColorNight = update.color
             is ConfigUpdate.TipFooterColor -> ReadBookConfig.tipFooterColor = update.color
+            is ConfigUpdate.TipFooterColorNight -> ReadBookConfig.tipFooterColorNight = update.color
             is ConfigUpdate.TipDividerColor -> ReadBookConfig.tipDividerColor = update.color
 
             // --- Layout / style ---
@@ -4683,6 +4687,13 @@ class ReadBookViewModel(
                 }
                 _uiState.update { it.copy(menuConfig = it.menuConfig.copy(readMenuBlurColor = update.color)) }
             }
+            is ConfigUpdate.MenuBlurColorNight -> {
+                ReadBookConfig.readMenuBlurColorNight = update.color
+                viewModelScope.launch {
+                    readSettingsRepository.setReadMenuBlurColorNight(update.color)
+                }
+                _uiState.update { it.copy(menuConfig = it.menuConfig.copy(readMenuBlurColorNight = update.color)) }
+            }
             is ConfigUpdate.MenuPaletteStyle -> {
                 ReadBookConfig.readMenuPaletteStyle = update.value
                 viewModelScope.launch {
@@ -4968,12 +4979,6 @@ class ReadBookViewModel(
                 ReadConfig.showSelectMenuIcon = update.value
                 viewModelScope.launch {
                     readSettingsRepository.setShowSelectMenuIcon(update.value)
-                }
-            }
-            is ConfigUpdate.TextSelectMenuFilter -> {
-                ReadConfig.textSelectMenuFilter = update.value
-                viewModelScope.launch {
-                    readSettingsRepository.setTextSelectMenuFilter(update.value)
                 }
             }
             is ConfigUpdate.ShowReadTitleAddition -> {

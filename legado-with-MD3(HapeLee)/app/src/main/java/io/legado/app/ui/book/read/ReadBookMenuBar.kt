@@ -563,6 +563,7 @@ private fun ReadBookMenuSurface(
                         shape = surfaceShape,
                         menuConfig = state.menuConfig,
                         progressive = bottomBarProgressiveBlur,
+                        blurRadiusDp = if (expanded) 32 else null,
                     )
                 } else {
                     Modifier
@@ -588,9 +589,11 @@ private fun ReadBookMenuSurface(
                 }
             },
         shape = surfaceShape,
-        color = if (useLiquidGlass || useHaze) Color.Transparent else colors.background.copy(
-            alpha = state.menuConfig.readMenuBlurAlpha.coerceIn(0, 100) / 100f
-        ),
+        color = if (useLiquidGlass || useHaze) Color.Transparent else {
+            val baseAlpha = state.menuConfig.readMenuBlurAlpha.coerceIn(0, 100) / 100f
+            val effectiveAlpha = if (expanded) baseAlpha.coerceAtLeast(0.85f) else baseAlpha
+            colors.background.copy(alpha = effectiveAlpha)
+        },
         contentColor = colors.content
     ) {
         AnimatedContent(
@@ -1774,6 +1777,7 @@ private fun FloatingIconRow(
         state.menuConfig.titleBarButtons,
         state.isReadAloudRunning,
         state.isAutoPage,
+        state.translationMode,
     ) {
         loadFloatingIcons(context, state, onIntent)
     }
@@ -2351,7 +2355,8 @@ private fun MenuBottomBar(
             state.menuConfig.bottomBarButtons,
             state.menuConfig.readMenuCustomIcons,
             state.isReadAloudRunning,
-            state.isAutoPage
+            state.isAutoPage,
+            state.translationMode
         ) {
             loadToolButtons(context, state, onIntent)
         }
@@ -3080,13 +3085,24 @@ private fun Modifier.readMenuBottomBarHazeEffect(
     shape: Shape,
     menuConfig: ReadMenuConfig,
     progressive: Boolean,
+    blurRadiusDp: Int? = null,
 ): Modifier {
     val surfaceAlpha = menuConfig.readMenuBlurAlpha.coerceIn(0, 100) / 100f
+    val resolvedBlurTintColor = menuConfig.readMenuBlurColorNight
+        .takeIf { it != 0 && ReadStyleResolver.isNightTheme() }
+        ?.let { Color(it) }
+        ?: menuConfig.readMenuBlurColor
+            .takeIf { it != 0 && !ReadStyleResolver.isNightTheme() }
+            ?.let { Color(it) }
+            ?: menuConfig.readMenuBlurColor
+                .takeIf { it != 0 }
+                ?.let { Color(it) }
     val backgroundModifier = if (progressive) {
         Modifier.background(
             readMenuBottomBarSurfaceBrush(
                 colors = colors,
                 alpha = surfaceAlpha,
+                blurTintColor = resolvedBlurTintColor,
             )
         )
     } else {
@@ -3100,6 +3116,7 @@ private fun Modifier.readMenuBottomBarHazeEffect(
             menuConfig = menuConfig,
             progressive = progressive,
             progressiveBottomToTop = progressive,
+            blurRadiusDp = blurRadiusDp,
         )
 }
 
@@ -3111,9 +3128,18 @@ private fun Modifier.readMenuHazeEffect(
     menuConfig: ReadMenuConfig,
     progressive: Boolean = false,
     progressiveBottomToTop: Boolean = false,
+    blurRadiusDp: Int? = null,
 ): Modifier {
     val surfaceAlpha = menuConfig.readMenuBlurAlpha.coerceIn(0, 100) / 100f
-    val blurTintColor = menuConfig.readMenuBlurColor.takeIf { it != 0 }?.let { Color(it) }
+    val blurTintColor = menuConfig.readMenuBlurColorNight
+        .takeIf { it != 0 && ReadStyleResolver.isNightTheme() }
+        ?.let { Color(it) }
+        ?: menuConfig.readMenuBlurColor
+            .takeIf { it != 0 && !ReadStyleResolver.isNightTheme() }
+            ?.let { Color(it) }
+            ?: menuConfig.readMenuBlurColor
+                .takeIf { it != 0 }
+                ?.let { Color(it) }
     val hazeContainerColor = if (progressive) {
         (blurTintColor ?: Color.Black).copy(alpha = surfaceAlpha)
     } else {
@@ -3121,7 +3147,7 @@ private fun Modifier.readMenuHazeEffect(
     }
     val style = HazeLegado.custom(
         containerColor = hazeContainerColor,
-        blurRadius = menuConfig.readMenuBlurRadius,
+        blurRadius = blurRadiusDp ?: menuConfig.readMenuBlurRadius,
         blurAlpha = menuConfig.readMenuBlurAlpha,
     )
 
@@ -3160,11 +3186,13 @@ private fun readMenuTopBarSurfaceBrush(
 private fun readMenuBottomBarSurfaceBrush(
     colors: ReadMenuColors,
     alpha: Float,
+    blurTintColor: Color? = null,
 ): Brush {
-    val strongColor = colors.background.copy(
+    val baseColor = blurTintColor ?: colors.background
+    val strongColor = baseColor.copy(
         alpha = alpha.coerceIn(0f, 1f),
     )
-    val weakColor = colors.background.copy(
+    val weakColor = baseColor.copy(
         alpha = (alpha * 0.72f).coerceIn(0f, 1f),
     )
     return Brush.verticalGradient(
@@ -3243,6 +3271,7 @@ private fun loadFloatingIcons(
     val activeIds = buildSet {
         if (state.isReadAloudRunning) add("read_aloud")
         if (state.isAutoPage) add("auto_page")
+        if (state.translationMode) add("translate")
     }
 
     return state.menuConfig.titleBarButtons
