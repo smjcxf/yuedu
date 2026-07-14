@@ -1018,6 +1018,7 @@
     <string name="use_default_cover_s">总是显示默认封面（不显示网络封面）</string>
     <string name="title_font_size">字号</string>
     <string name="title_color">标题颜色</string>
+    <string name="reset_to_body_color">重置为正文颜色</string>
     <string name="title_margin_top">上边距</string>
     <string name="title_margin_bottom">下边距</string>
     <string name="show">显示</string>
@@ -1356,6 +1357,7 @@
     <string name="adjust_chapter_page">调整本章页数</string>
     <string name="adjust_chapter_index">调整章节位置</string>
     <string name="clear_webview_data_success">清除成功，3秒后自动重启应用</string>
+    <string name="clear_webview_data_failed">清除 WebView 数据失败</string>
     <string name="key_page_on_long_press">按键长按翻页</string>
     <string name="save_log">保存日志</string>
     <string name="create_heap_dump">创建堆转储</string>
@@ -1393,6 +1395,8 @@
     <string name="start_chapter">起始章</string>
     <string name="update_to_variant_title">检查更新查找版本</string>
     <string name="update_to_variant_summary">检查更新时查找其他签名版本</string>
+    <string name="auto_check_update_on_start_title">启动时自动检测更新</string>
+    <string name="auto_check_update_on_start_summary">仅在应用进程完全重新启动时检测，从后台返回不会触发</string>
     <string name="default_version">当前</string>
     <string name="official_version">正式版</string>
     <string name="beta_release_version">测试版</string>
@@ -1971,6 +1975,9 @@
     <string name="ai_rewrite_temporary_instruction">临时要求（仅本次）</string>
     <string name="ai_rewrite_temporary_instruction_hint">例如：这一版更口语化，保留原段落长度</string>
     <string name="ai_rewrite_reference_used">已参考 %1$d 段已缓存或本地章节摘录。</string>
+    <string name="ai_rewrite_history">历史</string>
+    <string name="ai_rewrite_history_empty">这段原文暂无改写结果。</string>
+    <string name="ai_rewrite_use_history">使用</string>
     <string name="ai_rewrite_empty_result">AI 返回了空文本。</string>
     <string name="ai_rewrite_preset_empty">名称和要求不能为空。</string>
     <string name="ai_rewrite_preset_name">名称</string>
@@ -2464,4 +2471,5 @@
     <string name="collapsed_menu">折叠菜单</string>
     <string name="hidden_items">已隐藏项目</string>
     <string name="merged_in_multiline">多行模式下将合并展示</string>
+    <string name="apply">应用</string>
 </resources>

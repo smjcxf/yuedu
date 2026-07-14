@@ -1205,6 +1205,7 @@
     <string name="adjust_chapter_page">调整本章页数</string>
     <string name="adjust_chapter_index">调整章节位置</string>
     <string name="clear_webview_data_success">清除成功，3秒后自动重启应用</string>
+    <string name="clear_webview_data_failed">清除 WebView 資料失敗</string>
     <string name="key_page_on_long_press">按键长按翻页</string>
     <string name="save_log">保存日志</string>
     <string name="create_heap_dump">创建堆转储</string>
@@ -1225,6 +1226,8 @@
     <string name="start_chapter">開始篇章</string>
     <string name="update_to_variant_title">检查更新查找版本</string>
     <string name="update_to_variant_summary">检查更新时查找其他签名版本</string>
+    <string name="auto_check_update_on_start_title">啟動時自動檢查更新</string>
+    <string name="auto_check_update_on_start_summary">僅在應用程式程序完全重新啟動時檢查，從背景返回不會觸發</string>
     <string name="default_version">当前</string>
     <string name="official_version">正式版</string>
     <string name="beta_release_version">测试版</string>
@@ -1528,6 +1531,7 @@
     <string name="image_style_text">文字吸附</string>
     <string name="image_style_single">單頁</string>
     <string name="title_color">標題顏色</string>
+    <string name="reset_to_body_color">重置為正文顏色</string>
     <string name="export_file_name_template_hint">{name} - {author}</string>
     <string name="export_file_name_template_help">可用變數：{name} 書名、{author} 作者、{group} 分組、{source} 來源、{remark} 備註。
 

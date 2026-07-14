@@ -2,6 +2,7 @@ package io.legado.app.ui.book.read.sheet
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -9,6 +10,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.filled.Alarm
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
@@ -24,6 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import io.legado.app.R
+import io.legado.app.domain.model.PlaybackTimer
 import io.legado.app.ui.book.read.ReadBookIntent
 import io.legado.app.ui.book.read.ReadBookUiState
 import io.legado.app.ui.widget.components.button.series.MediumTonalButton
@@ -37,6 +41,7 @@ fun ReadAloudContent(
     onDismissRequest: () -> Unit,
     onOpenChapterList: () -> Unit,
     onGoToBackground: () -> Unit,
+    onOpenMainMenu: () -> Unit,
     onShowReadAloudConfig: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -88,12 +93,27 @@ fun ReadAloudContent(
             title = stringResource(R.string.set_timer),
             description = stringResource(R.string.timer_m, timerMinute),
             value = timerMinute.toFloat(),
-            valueRange = 0f..180f,
-            steps = 179,
+            valueRange = PlaybackTimer.MIN_MINUTES.toFloat()..PlaybackTimer.MAX_MINUTES.toFloat(),
+            steps = PlaybackTimer.MAX_MINUTES - PlaybackTimer.MIN_MINUTES - 1,
             onValueChange = {
                 onIntent(ReadBookIntent.SetReadAloudTtsTimer(it.toInt()))
             },
         )
+
+        Spacer(Modifier.height(8.dp))
+
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            listOf(0, 5, 10, 15, 30, 60, 90).forEach { minute ->
+                MediumTonalButton(
+                    onClick = { onIntent(ReadBookIntent.SetReadAloudTtsTimer(minute)) },
+                    text = stringResource(R.string.timer_m, minute),
+                )
+            }
+        }
 
         Spacer(Modifier.height(8.dp))
 
@@ -108,7 +128,8 @@ fun ReadAloudContent(
             )
             MediumTonalButton(
                 onClick = { onIntent(ReadBookIntent.SaveReadAloudTtsTimer(timerMinute)) },
-                text = stringResource(R.string.save_tts_timer),
+                icon = Icons.Default.Alarm,
+                contentDescription = stringResource(R.string.save_tts_timer),
                 modifier = Modifier.weight(1f),
             )
             MediumTonalButton(
@@ -145,6 +166,11 @@ fun ReadAloudContent(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceEvenly,
         ) {
+            ActionButton(
+                icon = Icons.Default.Menu,
+                label = stringResource(R.string.main_menu),
+                onClick = onOpenMainMenu,
+            )
             ActionButton(
                 icon = Icons.AutoMirrored.Filled.List,
                 label = stringResource(R.string.chapter_list),

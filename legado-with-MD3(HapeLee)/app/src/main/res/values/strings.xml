@@ -1392,6 +1392,7 @@
     <string name="adjust_chapter_page">Adjust of chapter page</string>
     <string name="adjust_chapter_index">Adjust of chapter index</string>
     <string name="clear_webview_data_success">Cleared successfully, automatically restarts the application after 3 seconds</string>
+    <string name="clear_webview_data_failed">Failed to clear WebView data</string>
     <string name="key_page_on_long_press">Press and Hold the Key to Turn Page</string>
     <string name="save_log">Save logs</string>
     <string name="create_heap_dump">Create Heap Dump</string>
@@ -1429,6 +1430,8 @@
     <string name="start_chapter">Start Chapter</string>
     <string name="update_to_variant_title">Check Updates for Variants</string>
     <string name="update_to_variant_summary">Look for other signature variants when checking for updates</string>
+    <string name="auto_check_update_on_start_title">Check for updates on startup</string>
+    <string name="auto_check_update_on_start_summary">Only checks after the app process fully restarts; returning from the background will not trigger a check</string>
     <string name="default_version">Current</string>
     <string name="official_version">Official</string>
     <string name="beta_release_version">Beta</string>
@@ -1902,6 +1905,9 @@
     <string name="ai_rewrite_temporary_instruction">Temporary instruction (this time only)</string>
     <string name="ai_rewrite_temporary_instruction_hint">Example: make this version more conversational while keeping the original length</string>
     <string name="ai_rewrite_reference_used">Referenced %1$d related excerpt(s) from cached or local chapters.</string>
+    <string name="ai_rewrite_history">History</string>
+    <string name="ai_rewrite_history_empty">No rewritten results for this text.</string>
+    <string name="ai_rewrite_use_history">Use</string>
     <string name="ai_rewrite_empty_result">AI returned empty text.</string>
     <string name="ai_rewrite_preset_empty">Name and requirement cannot be empty.</string>
     <string name="ai_rewrite_preset_name">Name</string>
@@ -2470,4 +2476,5 @@
     <string name="collapsed_menu">Collapsed Menu</string>
     <string name="hidden_items">Hidden Items</string>
     <string name="merged_in_multiline">Merged in multiline mode</string>
+    <string name="apply">Apply</string>
 </resources>

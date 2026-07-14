@@ -280,7 +280,7 @@ private fun BookInfoScreenContent(
                                     onNetworkCoverLoadError(book.coverPath)
                                 },
                                 usesDefaultCover = usesDefaultCover,
-                                blurCover = resolvedBackdropStyle.blurCover,
+                                applySeedOverlay = resolvedBackdropStyle.applySeedOverlay,
                                 sharedTransitionScope = sharedTransitionScope,
                                 animatedVisibilityScope = animatedVisibilityScope,
                                 sharedCoverKey = sharedCoverKey,
@@ -317,7 +317,7 @@ private fun BookInfoScreenContent(
                                 }
                                 BookInfoSummary(
                                     book = book,
-                                    hasChapters = state.hasChapters,
+                                    tocLoadFailed = state.tocLoadFailed,
                                     onRemarkClick = { onIntent(BookInfoIntent.RemarkClick) },
                                 )
                             }
@@ -620,15 +620,6 @@ private fun BookInfoBackdrop(
     usesDefaultCover: Boolean,
     onNetworkCoverLoadError: (String?) -> Unit,
 ) {
-    if (!style.showCover) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .clearAndSetSemantics { }
-                .background(LegadoTheme.colorScheme.surface)
-        )
-        return
-    }
     val backdropState = remember(
         book.name,
         book.author,
@@ -653,36 +644,38 @@ private fun BookInfoBackdrop(
             .fillMaxSize()
             .clearAndSetSemantics { }
     ) {
-        Crossfade(
-            targetState = backdropState,
-            animationSpec = tween(800),
-            label = "BackdropCrossfade"
-        ) { currentBook ->
-            BookCoverImage(
-                name = currentBook.name,
-                author = currentBook.author,
-                path = currentBook.coverPath,
-                sourceOrigin = currentBook.sourceOrigin,
-                memoryCacheKey = currentBook.coverPath?.let { "$it#book-info-backdrop" },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(480.dp)
-                    .then(
-                        if (style.blurCover) {
-                            Modifier.blur(24.dp)
-                        } else {
-                            Modifier
-                        }
-                    ),
-                contentScale = ContentScale.Crop,
-                showLoadingPlaceholder = false,
-                onError = { onNetworkCoverLoadError(currentBook.coverPath) },
-                requestBuilder = {
-                    size(Size(384, 384))
-                }
-            )
+        if (style.showCover) {
+            Crossfade(
+                targetState = backdropState,
+                animationSpec = tween(800),
+                label = "BackdropCrossfade"
+            ) { currentBook ->
+                BookCoverImage(
+                    name = currentBook.name,
+                    author = currentBook.author,
+                    path = currentBook.coverPath,
+                    sourceOrigin = currentBook.sourceOrigin,
+                    memoryCacheKey = currentBook.coverPath?.let { "$it#book-info-backdrop" },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(480.dp)
+                        .then(
+                            if (style.blurCover) {
+                                Modifier.blur(24.dp)
+                            } else {
+                                Modifier
+                            }
+                        ),
+                    contentScale = ContentScale.Crop,
+                    showLoadingPlaceholder = false,
+                    onError = { onNetworkCoverLoadError(currentBook.coverPath) },
+                    requestBuilder = {
+                        size(Size(384, 384))
+                    }
+                )
+            }
         }
-        if (style.blurCover) {
+        if (style.applySeedOverlay) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -696,12 +689,12 @@ private fun BookInfoBackdrop(
                     Brush.verticalGradient(
                         colorStops = arrayOf(
                             0f to Color.Transparent,
-                            0.20f to if (style.blurCover) {
+                            0.20f to if (style.applySeedOverlay) {
                                 seedOverlay.copy(alpha = 0.10f)
                             } else {
                                 Color.Transparent
                             },
-                            0.40f to if (style.blurCover) {
+                            0.40f to if (style.applySeedOverlay) {
                                 seedOverlay.copy(alpha = 0.18f)
                             } else {
                                 LegadoTheme.colorScheme.surface.copy(alpha = 0.35f)
@@ -827,7 +820,7 @@ private fun BookInfoHeader(
     onOriginClick: () -> Unit,
     onNetworkCoverLoadError: () -> Unit,
     usesDefaultCover: Boolean,
-    blurCover: Boolean,
+    applySeedOverlay: Boolean,
     sharedTransitionScope: SharedTransitionScope?,
     animatedVisibilityScope: AnimatedVisibilityScope?,
     sharedCoverKey: String?,
@@ -840,7 +833,7 @@ private fun BookInfoHeader(
                 Brush.verticalGradient(
                     colors = listOf(
                         Color.Transparent,
-                        if (blurCover) {
+                        if (applySeedOverlay) {
                             lerp(LegadoTheme.colorScheme.surface, LegadoTheme.seedColor, 0.08f)
                                 .copy(alpha = 0.5f)
                         } else {
@@ -1100,7 +1093,7 @@ private fun BookInfoActionCard(
 @Composable
 private fun BookInfoSummary(
     book: BookInfoBookUi,
-    hasChapters: Boolean,
+    tocLoadFailed: Boolean,
     onRemarkClick: () -> Unit,
 ) {
     Column(
@@ -1140,7 +1133,7 @@ private fun BookInfoSummary(
                 style = LegadoTheme.typography.labelMedium,
                 color = LegadoTheme.colorScheme.secondary,
             )
-            if (!hasChapters) {
+            if (tocLoadFailed) {
                 AppText(
                     text = " · ",
                     color = LegadoTheme.colorScheme.secondary
