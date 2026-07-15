@@ -81,6 +81,8 @@ data class ReadBookStyleConfig(
     val textColor: String = "#3E3D3B",
     val textColorNight: String = "#CCCCCC",
     val textColorEInk: String = "#000000",
+    val textFont: String = "",
+    val titleFont: String = "",
     // Page anim
     val pageAnim: Int = 0,
     val pageAnimEInk: Int = 4,
@@ -669,7 +671,6 @@ sealed interface ReadBookIntent {
     data object ReadAloudPrevChapter : ReadBookIntent
     data object ReadAloudNextChapter : ReadBookIntent
     data class SetReadAloudTtsTimer(val value: Int) : ReadBookIntent
-    data class SaveReadAloudTtsTimer(val value: Int) : ReadBookIntent
     data class SetReadAloudTtsFollowSys(val value: Boolean) : ReadBookIntent
     data class SetReadAloudTtsSpeechRate(val value: Int) : ReadBookIntent
     data object OpenSystemTtsSettings : ReadBookIntent

@@ -108,6 +108,8 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.koin.androidx.compose.koinViewModel
+import top.yukonga.miuix.kmp.basic.FloatingActionButton
+import top.yukonga.miuix.kmp.basic.NavigationRailDefaults
 import top.yukonga.miuix.kmp.basic.NavigationRailValue
 import top.yukonga.miuix.kmp.basic.rememberNavigationRailState
 import top.yukonga.miuix.kmp.basic.NavigationRail as MiuixNavigationRail
@@ -214,7 +216,7 @@ fun MainScreen(
         orientation = Orientation.Horizontal,
     )
     var bookshelfScrollToTopRequest by remember { mutableLongStateOf(0L) }
-    var homeSourceSetMenuRequest by remember { mutableLongStateOf(0L) }
+    var homeOverflowMenuRequest by remember { mutableLongStateOf(0L) }
     fun requestBookshelfScrollToTop() {
         bookshelfScrollToTopRequest++
     }
@@ -225,7 +227,7 @@ fun MainScreen(
             pagerState.currentPage == index &&
             pagerState.targetPage == index
         ) {
-            homeSourceSetMenuRequest++
+            homeOverflowMenuRequest++
             return
         }
         if (
@@ -278,12 +280,18 @@ fun MainScreen(
                 MiuixNavigationRail(
                     state = miuixNavState,
                     header = {
-                        ExtendedFloatingActionButton(
+                        FloatingActionButton(
+                            modifier = Modifier
+                                .align(Alignment.Start)
+                                .padding(start = NavigationRailDefaults.ExpandedItemHorizontalMargin),
                             onClick = { onNavigateToSearch(null) },
-                            expanded = miuixNavState.isExpanded,
-                            icon = { AppIcon(Icons.Default.Search, contentDescription = null) },
-                            text = { AppText(stringResource(R.string.search)) }
-                        )
+                        ) {
+                            AppIcon(
+                                Icons.Default.Search,
+                                contentDescription = null,
+                                tint = Color.White
+                            )
+                        }
                     }
                 ) {
                     destinations.forEachIndexed { index, destination ->
@@ -507,7 +515,7 @@ fun MainScreen(
                         CompositionLocalProvider(LocalLifecycleOwner provides pageLifecycleOwner) {
                             when (destination) {
                             MainDestination.Home -> HomeRouteScreen(
-                                showSourceSetMenuRequest = homeSourceSetMenuRequest,
+                                showOverflowMenuRequest = homeOverflowMenuRequest,
                                 onOpenBook = { book ->
                                     context.startActivityForBook(book)
                                 },

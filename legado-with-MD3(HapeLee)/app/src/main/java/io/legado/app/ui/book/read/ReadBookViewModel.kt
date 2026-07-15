@@ -1127,10 +1127,6 @@ class ReadBookViewModel(
             )
             is ReadBookIntent.ReadAloudNextChapter -> ReadBook.moveToNextChapter(true)
             is ReadBookIntent.SetReadAloudTtsTimer -> setReadAloudTtsTimer(intent.value)
-            is ReadBookIntent.SaveReadAloudTtsTimer -> {
-                viewModelScope.launch { readAloudSettingsRepository.saveTtsTimer(intent.value) }
-                _effects.tryEmit(ReadBookEffect.ShowToast(context.getString(R.string.save_success)))
-            }
             is ReadBookIntent.SetReadAloudTtsFollowSys -> {
                 viewModelScope.launch { readAloudSettingsRepository.setTtsFollowSys(intent.value) }
                 _uiState.update { it.copy(readAloudTtsFollowSys = intent.value) }
@@ -1958,6 +1954,7 @@ class ReadBookViewModel(
     private fun setReadAloudTtsTimer(value: Int) {
         val timer = PlaybackTimer.normalize(value)
         ReadAloud.setTimer(context, timer)
+        viewModelScope.launch { readAloudSettingsRepository.setTtsTimer(timer) }
         _uiState.update { it.copy(readAloudTtsTimer = timer) }
     }
 
@@ -2004,6 +2001,8 @@ class ReadBookViewModel(
             textColor = dur.getTextColor(),
             textColorNight = dur.getTextColorNight(),
             textColorEInk = dur.getTextColorEInk(),
+            textFont = config.textFont,
+            titleFont = config.titleFont,
             pageAnim = actualConfig.getPageAnim(),
             pageAnimEInk = actualConfig.getPageAnimEInk(),
             shareLayout = config.shareLayout,
