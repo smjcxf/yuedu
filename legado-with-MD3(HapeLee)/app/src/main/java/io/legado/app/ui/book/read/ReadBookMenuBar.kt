@@ -1066,6 +1066,14 @@ private fun MenuTitleBar(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     if (!state.isLocalBook) {
+                        if (state.bookSource?.customButton == true) {
+                            SourceCustomActionButton(
+                                state = state,
+                                colors = colors,
+                                onIntent = onIntent,
+                                backdrop = backdrop,
+                            )
+                        }
                         SourceActionButton(
                             state = state,
                             colors = colors,
@@ -1253,6 +1261,7 @@ private fun MenuTitleGlassButton(
         backdrop = backdrop,
         menuConfig = state.menuConfig,
         glassEnabled = readMenuTopBarButtonLiquidGlassEnabled(backdrop, state.menuConfig),
+        iconStyle = state.menuConfig.titleBarIconStyle,
         modifier = modifier,
         onLongClick = onLongClick,
         contentDescription = contentDescription,
@@ -1268,6 +1277,7 @@ private fun ReadMenuGlassIconButton(
     backdrop: Backdrop?,
     menuConfig: ReadMenuConfig,
     glassEnabled: Boolean,
+    iconStyle: Int = menuConfig.readMenuIconStyle,
     modifier: Modifier = Modifier,
     onLongClick: (() -> Unit)? = null,
     selected: Boolean = false,
@@ -1279,6 +1289,7 @@ private fun ReadMenuGlassIconButton(
         backdrop = backdrop,
         menuConfig = menuConfig,
         glassEnabled = glassEnabled,
+        iconStyle = iconStyle,
         modifier = modifier,
         onLongClick = onLongClick,
         selected = selected,
@@ -1301,6 +1312,7 @@ private fun ReadMenuGlassButtonSurface(
     backdrop: Backdrop?,
     menuConfig: ReadMenuConfig,
     glassEnabled: Boolean,
+    iconStyle: Int = menuConfig.readMenuIconStyle,
     modifier: Modifier = Modifier,
     onLongClick: (() -> Unit)? = null,
     selected: Boolean = false,
@@ -1314,12 +1326,13 @@ private fun ReadMenuGlassButtonSurface(
     }
     val containerColor = when {
         selected -> LegadoTheme.colorScheme.secondaryContainer
-        else -> LegadoTheme.colorScheme.surfaceContainerLow
+        iconStyle == 1 -> LegadoTheme.colorScheme.surfaceContainerLow
+        else -> Color.Transparent
     }
-    val border = if (selected) {
-        BorderStroke(1.5.dp, LegadoTheme.colorScheme.secondary)
-    } else {
-        null
+    val border = when {
+        selected -> BorderStroke(1.5.dp, LegadoTheme.colorScheme.secondary)
+        !glassEnabled && iconStyle == 2 -> BorderStroke(1.dp, tint.copy(alpha = 0.45f))
+        else -> null
     }
     val outerSize = if (glassEnabled) 48.dp else 40.dp
     val innerSize = 40.dp
@@ -1475,6 +1488,41 @@ private fun MenuTitleBarMergedGlassButton(
             ) {
             // SwapHoriz - change source
             if (!state.isLocalBook) {
+                if (state.bookSource?.customButton == true) {
+                    val customButtonDescription = stringResource(R.string.custom_button)
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(40.dp)
+                            .combinedClickable(
+                                indication = null,
+                                interactionSource = remember { MutableInteractionSource() },
+                                role = Role.Button,
+                                onClick = { onIntent(ReadBookIntent.SourceCustomButton(false)) },
+                                onLongClick = { onIntent(ReadBookIntent.SourceCustomButton(true)) },
+                            )
+                            .semantics {
+                                contentDescription = customButtonDescription
+                                role = Role.Button
+                            },
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Build,
+                            contentDescription = null,
+                            tint = tint,
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .width(1.dp)
+                            .height(20.dp)
+                            .background(tint.copy(alpha = 0.15f))
+                            .clearAndSetSemantics { }
+                    )
+                }
+
                 val changeSourceDescription = stringResource(R.string.change_origin)
                 Box(
                     contentAlignment = Alignment.Center,
@@ -1711,6 +1759,24 @@ private fun MenuTitleBarMergedGlassButton(
 }
 
 @Composable
+private fun SourceCustomActionButton(
+    state: ReadBookUiState,
+    colors: ReadMenuColors,
+    onIntent: (ReadBookIntent) -> Unit,
+    backdrop: Backdrop?,
+) {
+    MenuTitleGlassButton(
+        onClick = { onIntent(ReadBookIntent.SourceCustomButton(false)) },
+        onLongClick = { onIntent(ReadBookIntent.SourceCustomButton(true)) },
+        icon = Icons.Default.Build,
+        contentDescription = stringResource(R.string.custom_button),
+        state = state,
+        colors = colors,
+        backdrop = backdrop,
+    )
+}
+
+@Composable
 private fun SourceActionButton(
     state: ReadBookUiState,
     colors: ReadMenuColors,
@@ -1880,6 +1946,7 @@ private fun FloatingIconRow(
                     backdrop,
                     state.menuConfig
                 ),
+                iconStyle = state.menuConfig.titleBarIconStyle,
                 selected = iconDef.isActive,
                 modifier = Modifier.padding(horizontal = 4.dp),
                 onLongClick = iconDef.onLongClick,
@@ -2422,7 +2489,7 @@ private fun MenuBottomBar(
             }
         }
 
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(12.dp))
 
         // Tool buttons
         val toolButtons = remember(

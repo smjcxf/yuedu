@@ -1457,6 +1457,10 @@
     <string name="theme_manage_import_package_summary">导入包含资源和封面图集的主题包</string>
     <string name="theme_manage_import_config">导入旧版主题配置</string>
     <string name="theme_manage_import_config_summary">从旧版 JSON 文件导入主题配置</string>
+    <string name="theme_manage_migrate_legacy">迁移旧版主题</string>
+    <string name="theme_manage_migrate_legacy_summary">将已保存的 JSON 主题转换为新版主题格式</string>
+    <string name="theme_manage_migrate_success">已迁移 %1$d 个旧版主题</string>
+    <string name="theme_manage_migrate_partial">已迁移 %1$d 个主题，%2$d 个迁移失败</string>
     <string name="theme_manage_saved_themes">已保存的主题</string>
     <string name="theme_manage_save_theme">保存主题</string>
     <string name="theme_manage_save">保存</string>
@@ -2101,8 +2105,8 @@
     <string name="read_menu_show_icon_text">显示图标文字</string>
     <string name="read_menu_icon_container_style">图标容器样式</string>
     <string name="read_menu_icon_style_plain">无容器</string>
-    <string name="read_menu_icon_style_tonal">Tonal</string>
-    <string name="read_menu_icon_style_outlined">Outlined</string>
+    <string name="read_menu_icon_style_tonal">色调</string>
+    <string name="read_menu_icon_style_outlined">描边</string>
     <string name="read_menu_icons_per_row">每行图标数</string>
     <string name="read_menu_icon_row_count">图标行数</string>
     <string name="read_menu_custom_icons">自定义图标</string>

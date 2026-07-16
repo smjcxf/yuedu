@@ -316,6 +316,7 @@ data class ReadMenuConfig(
     val readMenuTopBarBlurStyle: Int = ReadMenuBlurStyle.Progressive,
     val readMenuBottomBarBlurStyle: Int = ReadMenuBlurStyle.Solid,
     val readMenuIconStyle: Int = 0,
+    val titleBarIconStyle: Int = 0,
     val readMenuIconShowText: Boolean = true,
     val readSliderMode: String = "0",
     val titleBarCustomIcons: ImmutableMap<String, String> = persistentMapOf(),
@@ -468,6 +469,7 @@ sealed interface ReadBookIntent {
     data object OpenBookInfo : ReadBookIntent
     data object OpenChapterList : ReadBookIntent
     data object OpenChapterUrl : ReadBookIntent
+    data class SourceCustomButton(val longClick: Boolean) : ReadBookIntent
     data object ToggleReadUrlInBrowser : ReadBookIntent
 
     // Content edit
@@ -770,6 +772,13 @@ sealed interface ReadBookEffect {
         val sourceName: String?,
         val sourceType: Int?,
         val html: String? = null,
+    ) : ReadBookEffect
+
+    data class RunSourceCustomButton(
+        val event: String,
+        val source: BookSource,
+        val book: Book,
+        val chapter: BookChapter?,
     ) : ReadBookEffect
 
     // Menu actions that need Activity
@@ -1233,6 +1242,10 @@ sealed interface ConfigUpdate {
         override val actions = emptySet<ConfigUpdateAction>()
     }
     data class MenuIconStyle(val value: Int) : ConfigUpdate {
+        override val actions = emptySet<ConfigUpdateAction>()
+    }
+
+    data class TitleBarIconStyle(val value: Int) : ConfigUpdate {
         override val actions = emptySet<ConfigUpdateAction>()
     }
     data class MenuIconItemsPerRow(val value: Int) : ConfigUpdate {
