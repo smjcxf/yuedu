@@ -21,10 +21,15 @@ import io.legado.app.data.entities.BookChapter
 import io.legado.app.data.entities.BookSource
 import io.legado.app.data.entities.SearchBook
 import io.legado.app.data.entities.readRecord.ReadRecordTimelineDay
+import io.legado.app.domain.gateway.BookKnowledgeGateway
 import io.legado.app.data.repository.BookGroupRepository
 import io.legado.app.data.repository.ReadRecordRepository
 import io.legado.app.data.repository.RemoteBookRepository
 import io.legado.app.domain.usecase.ChangeBookSourceUseCase
+import io.legado.app.domain.gateway.ThemeSettingsGateway
+import io.legado.app.domain.gateway.CoverSettingsGateway
+import io.legado.app.domain.gateway.OtherSettingsGateway
+import io.legado.app.domain.gateway.OtherSettingsUpdate
 import io.legado.app.domain.usecase.ChangeSourceMigrationOptions
 import io.legado.app.domain.usecase.ClearBookCacheUseCase
 import io.legado.app.exception.NoBooksDirException
@@ -61,7 +66,6 @@ import io.legado.app.utils.ImageSaveUtils
 import io.legado.app.utils.UrlUtil
 import io.legado.app.utils.fromJsonArray
 import io.legado.app.utils.postEvent
-import io.legado.app.utils.toastOnUi
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -80,6 +84,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -93,9 +98,13 @@ class BookInfoViewModel(
     private val clearBookCacheUseCase: ClearBookCacheUseCase,
     private val bookGroupRepository: BookGroupRepository,
     private val imageLoader: ImageLoader,
+    private val bookKnowledgeGateway: BookKnowledgeGateway,
+    private val themeSettingsGateway: ThemeSettingsGateway,
+    private val coverSettingsGateway: CoverSettingsGateway,
+    private val otherSettingsGateway: OtherSettingsGateway,
 ) : BaseViewModel(application) {
 
-    val allGroups = bookGroupRepository.flowAll()
+    val allGroups = bookGroupRepository.flowSelect().map { it.toImmutableList() }
 
     private val _uiState = MutableStateFlow(BookInfoUiState())
     val uiState = _uiState.asStateFlow()
@@ -105,6 +114,37 @@ class BookInfoViewModel(
 
     init {
         collectEventBus()
+        collectAppearanceSettings()
+        collectOtherSettings()
+    }
+
+    private fun collectAppearanceSettings() {
+        viewModelScope.launch {
+            combine(
+                themeSettingsGateway.settings,
+                coverSettingsGateway.settings,
+            ) { theme, cover -> theme to cover }
+                .collectLatest { (theme, cover) ->
+                    _uiState.update {
+                        it.copy(
+                            bookInfoFollowCoverColor = theme.bookInfoFollowCoverColor,
+                            bookInfoNetworkCoverBackground = theme.bookInfoNetworkCoverBackground,
+                            bookInfoDefaultCoverBackground = theme.bookInfoDefaultCoverBackground,
+                            loadCoverOnlyOnWifi = cover.loadOnlyOnWifi,
+                            defaultCover = cover.defaultCover,
+                            defaultCoverDark = cover.defaultCoverDark,
+                        )
+                    }
+                }
+        }
+    }
+
+    private fun collectOtherSettings() {
+        viewModelScope.launch {
+            otherSettingsGateway.settings.collectLatest { settings ->
+                _uiState.update { it.copy(showMangaUi = settings.showMangaUi) }
+            }
+        }
     }
 
     private fun collectEventBus() {
@@ -141,6 +181,7 @@ class BookInfoViewModel(
     private var tocLoadFailed = false
     private var currentWebFiles: List<BookInfoWebFile> = emptyList()
     private var currentRelatedBooks: List<RelatedBooksUi> = emptyList()
+    private var currentCharacters: List<BookInfoCharacterUi> = emptyList()
     private var currentHighlightedTags: List<HighlightedTag> = emptyList()
     private var currentKindLabels: List<String> = emptyList()
     private var currentGroupNames: String? = null
@@ -158,6 +199,7 @@ class BookInfoViewModel(
     private var changeSourceCoroutine: Coroutine<*>? = null
     private var readRecordObserveJob: Job? = null
     private var relatedBooksLoadJob: Job? = null
+    private var characterLoadJob: Job? = null
 
     fun initData(intent: Intent) {
         initData(
@@ -195,6 +237,7 @@ class BookInfoViewModel(
         currentChapterList = emptyList()
         currentWebFiles = emptyList()
         currentRelatedBooks = emptyList()
+        currentCharacters = emptyList()
         currentKindLabels = emptyList()
         currentGroupNames = null
         currentHasCustomGroup = false
@@ -203,6 +246,7 @@ class BookInfoViewModel(
         chapterChanged = false
         clearReadRecordObserve()
         relatedBooksLoadJob?.cancel()
+        characterLoadJob?.cancel()
         syncUiState()
         execute {
             val dbBook = appDb.bookDao.getBook(bookUrl)
@@ -230,7 +274,7 @@ class BookInfoViewModel(
             }
             upBook(book, source)
         }.onError {
-            context.toastOnUi(it.localizedMessage ?: "未找到书籍")
+            showMessage(it.localizedMessage ?: "未找到书籍")
             emitEffect(BookInfoEffect.Finish(afterTransition = true))
         }
     }
@@ -289,7 +333,7 @@ class BookInfoViewModel(
 
             is BookInfoIntent.AddSourceAsNewBook -> {
                 addToBookshelf(intent.book, intent.toc) {
-                    context.toastOnUi("已添加到书架")
+                    showMessage("已添加到书架")
                 }
             }
 
@@ -327,6 +371,15 @@ class BookInfoViewModel(
 
             is BookInfoIntent.RelatedBookClick -> onRelatedBookClick(intent.book)
             is BookInfoIntent.RelatedBooksMore -> onRelatedBooksMore(intent.title, intent.url)
+            is BookInfoIntent.CharacterClick -> openCharacterDetail(intent.characterId)
+            BookInfoIntent.AddCharacterClick -> openCharacterDetail(null)
+            BookInfoIntent.CharacterNetworkClick -> openCharacterNetwork()
+            BookInfoIntent.CharacterListClick -> openCharacterList()
+            BookInfoIntent.KnowledgeListClick -> openKnowledgeList()
+            BookInfoIntent.EventListClick -> openEventList()
+            is BookInfoIntent.SetDefaultBookTreeUri -> viewModelScope.launch {
+                otherSettingsGateway.update(OtherSettingsUpdate.DefaultBookTreeUri(intent.value))
+            }
         }
     }
 
@@ -417,6 +470,9 @@ class BookInfoViewModel(
                 inBookshelf = nextInBookshelf
                 syncUiState()
             }
+            loadBookCharacters(bookUrl)
+            loadBookKnowledge(bookUrl)
+            loadBookEvents(bookUrl)
         }
     }
 
@@ -439,7 +495,7 @@ class BookInfoViewModel(
             syncUiState(isTocLoading = true)
             loadBookInfo(book, canReName = false)
             if (!book.getSplitLongChapter()) {
-                context.toastOnUi(context.getString(R.string.need_more_time_load_content))
+                showMessage(R.string.need_more_time_load_content)
             }
         }
     }
@@ -463,7 +519,7 @@ class BookInfoViewModel(
         }.onSuccess {
             emitEffect(it)
         }.onError {
-            context.toastOnUi(it.localizedMessage ?: "书源不存在")
+            showMessage(it.localizedMessage ?: "书源不存在")
         }
     }
 
@@ -484,7 +540,7 @@ class BookInfoViewModel(
         }.onSuccess {
             emitEffect(it)
         }.onError {
-            context.toastOnUi(it.localizedMessage ?: "书源不存在")
+            showMessage(it.localizedMessage ?: "书源不存在")
         }
     }
 
@@ -529,11 +585,11 @@ class BookInfoViewModel(
             inBookshelf = true
             syncUiState(isTocLoading = true)
             loadChapter(newBook)
-            context.toastOnUi("同步完成")
+            showMessage("同步完成")
         }.onFinally {
             setBusy(false)
         }.onError {
-            context.toastOnUi(it.localizedMessage)
+            showMessage(it.localizedMessage ?: "同步失败")
         }
     }
 
@@ -548,7 +604,7 @@ class BookInfoViewModel(
         }.onFinally {
             setBusy(false)
         }.onError {
-            context.toastOnUi(it.localizedMessage)
+            showMessage(it.localizedMessage ?: "操作失败")
         }
     }
 
@@ -563,9 +619,9 @@ class BookInfoViewModel(
                     ReadManga.clearMangaChapter()
                 }
             }.onSuccess {
-                context.toastOnUi(R.string.clear_cache_success)
+                showMessage(R.string.clear_cache_success)
             }.onError {
-                context.toastOnUi("清理缓存出错\n${it.localizedMessage}")
+                showMessage("清理缓存出错\n${it.localizedMessage}")
             }
         }
     }
@@ -594,14 +650,14 @@ class BookInfoViewModel(
             }
         }.onSuccess { success ->
             if (success) {
-                context.toastOnUi("保存成功")
+                showMessage("保存成功")
             } else {
-                context.toastOnUi("保存失败")
+                showMessage("保存失败")
             }
         }.onFinally {
             setBusy(false)
         }.onError {
-            context.toastOnUi("保存出错: ${it.localizedMessage}")
+            showMessage("保存出错: ${it.localizedMessage}")
         }
     }
 
@@ -702,7 +758,7 @@ class BookInfoViewModel(
             success?.invoke()
         }.onError {
             AppLog.put("添加书籍到书架失败", it)
-            context.toastOnUi("添加书籍失败")
+            showMessage("添加书籍失败")
         }
     }
 
@@ -764,7 +820,7 @@ class BookInfoViewModel(
             val source = bookSource ?: run {
                 currentChapterList = emptyList()
                 syncUiState(isTocLoading = false)
-                context.toastOnUi(R.string.error_no_source)
+                showMessage(R.string.error_no_source)
                 return
             }
             WebBook.getBookInfo(scope, source, book, canReName = canReName)
@@ -790,7 +846,7 @@ class BookInfoViewModel(
                     scheduleRelatedBooksLoad(loadedBook, source)
                 }.onError {
                     AppLog.put("获取书籍信息失败\n${it.localizedMessage}", it)
-                    context.toastOnUi(R.string.error_get_book_info)
+                    showMessage(R.string.error_get_book_info)
                     syncUiState(isTocLoading = false)
                 }
         }
@@ -820,6 +876,7 @@ class BookInfoViewModel(
             }
             currentChapterList = toc
             currentRelatedBooks = emptyList()
+            currentCharacters = emptyList()
             currentGroupNames = null
             currentHasCustomGroup = false
             currentKindLabels = emptyList()
@@ -835,11 +892,15 @@ class BookInfoViewModel(
         tocLoadFailed = false
         currentWebFiles = emptyList()
         currentRelatedBooks = emptyList()
+        currentCharacters = emptyList()
         currentKindLabels = emptyList()
         currentGroupNames = null
         currentHasCustomGroup = false
         bookSource = source
         syncUiState(isTocLoading = false)
+        loadBookCharacters(book.bookUrl)
+        loadBookKnowledge(book.bookUrl)
+        loadBookEvents(book.bookUrl)
         refreshMeta(book)
         upCoverByRule(book)
         if (book.tocUrl.isEmpty() && !book.isLocal) {
@@ -939,7 +1000,7 @@ class BookInfoViewModel(
             val source = bookSource ?: run {
                 currentChapterList = emptyList()
                 syncUiState(isTocLoading = false)
-                context.toastOnUi(R.string.error_no_source)
+                showMessage(R.string.error_no_source)
                 return
             }
             val oldBook = book.copy()
@@ -984,7 +1045,7 @@ class BookInfoViewModel(
             syncUiState(isTocLoading = false)
         }.onError {
             currentWebFiles = emptyList()
-            context.toastOnUi("LoadWebFileError\n${it.localizedMessage}")
+            showMessage("LoadWebFileError\n${it.localizedMessage}")
             syncUiState(isTocLoading = false)
         }
     }
@@ -1012,7 +1073,7 @@ class BookInfoViewModel(
     private fun onTocClick() {
         val book = currentBook ?: return
         if (currentChapterList.isEmpty()) {
-            context.toastOnUi(R.string.chapter_list_empty)
+            showMessage(R.string.chapter_list_empty)
             return
         }
         if (!inBookshelf) {
@@ -1150,7 +1211,7 @@ class BookInfoViewModel(
             }
 
             BookInfoMenuAction.Upload -> uploadBook {
-                context.toastOnUi("上传成功")
+                showMessage("上传成功")
             }
             BookInfoMenuAction.SyncRemote -> syncFromRemote()
             BookInfoMenuAction.Refresh -> refreshCurrentBook()
@@ -1224,7 +1285,7 @@ class BookInfoViewModel(
         val book = currentBook ?: return
         if (book.isLocal) return
         if (!appDb.bookSourceDao.has(book.origin)) {
-            context.toastOnUi(R.string.error_no_source)
+            showMessage(R.string.error_no_source)
             return
         }
         emitEffect(BookInfoEffect.OpenBookSourceEdit(book.origin))
@@ -1237,7 +1298,7 @@ class BookInfoViewModel(
             }
         }.onError {
             AppLog.put("getArchiveEntriesName Error:\n${it.localizedMessage}", it)
-            context.toastOnUi("getArchiveEntriesName Error:\n${it.localizedMessage}")
+            showMessage("getArchiveEntriesName Error:\n${it.localizedMessage}")
         }.onSuccess {
             onSuccess.invoke(it)
         }
@@ -1261,7 +1322,7 @@ class BookInfoViewModel(
             success?.invoke(book)
         }.onError {
             AppLog.put("importArchiveBook Error:\n${it.localizedMessage}", it)
-            context.toastOnUi("importArchiveBook Error:\n${it.localizedMessage}")
+            showMessage("importArchiveBook Error:\n${it.localizedMessage}")
         }
     }
 
@@ -1292,7 +1353,7 @@ class BookInfoViewModel(
                 is NoBooksDirException -> emitEffect(BookInfoEffect.OpenSelectBooksDir)
                 else -> {
                     AppLog.put("ImportWebFileError\n${it.localizedMessage}", it)
-                    context.toastOnUi("ImportWebFileError\n${it.localizedMessage}")
+                    showMessage("ImportWebFileError\n${it.localizedMessage}")
                 }
             }
         }.onFinally {
@@ -1376,6 +1437,7 @@ class BookInfoViewModel(
                 tocLoadFailed = tocLoadFailed,
                 webFiles = currentWebFiles,
                 relatedBooks = currentRelatedBooks.toImmutableList(),
+                characters = currentCharacters.toImmutableList(),
                 highlightedTags = currentHighlightedTags,
                 kindLabels = currentKindLabels,
                 groupNames = currentGroupNames,
@@ -1412,6 +1474,138 @@ class BookInfoViewModel(
                 exploreUrl = resolvedUrl,
             )
         )
+    }
+
+    private fun openCharacterDetail(characterId: String?) {
+        val bookUrl = currentBook?.bookUrl ?: return
+        emitEffect(BookInfoEffect.OpenCharacterDetail(bookUrl, characterId))
+    }
+
+    private fun openCharacterNetwork() {
+        val bookUrl = currentBook?.bookUrl ?: return
+        emitEffect(BookInfoEffect.OpenCharacterNetwork(bookUrl))
+    }
+
+    private fun openKnowledgeList() {
+        val bookUrl = currentBook?.bookUrl ?: return
+        emitEffect(BookInfoEffect.OpenKnowledgeList(bookUrl))
+    }
+
+    private fun openCharacterList() {
+        val bookUrl = currentBook?.bookUrl ?: return
+        emitEffect(BookInfoEffect.OpenCharacterList(bookUrl))
+    }
+
+    private fun openEventList() {
+        val bookUrl = currentBook?.bookUrl ?: return
+        emitEffect(BookInfoEffect.OpenEventList(bookUrl))
+    }
+
+    private var knowledgeLoadJob: Job? = null
+    private var eventLoadJob: Job? = null
+    private var currentKnowledgeEntries: List<BookInfoKnowledgeUi> = emptyList()
+    private var currentRecentEvents: List<BookInfoEventUi> = emptyList()
+
+    private fun loadBookCharacters(bookUrl: String) {
+        characterLoadJob?.cancel()
+        characterLoadJob = viewModelScope.launch {
+            val roleOrder = mapOf(
+                io.legado.app.data.entities.BookCharacterProfile.ROLE_MALE_LEAD to 0,
+                io.legado.app.data.entities.BookCharacterProfile.ROLE_FEMALE_LEAD to 1,
+                io.legado.app.data.entities.BookCharacterProfile.ROLE_MALE_SUPPORTING to 2,
+                io.legado.app.data.entities.BookCharacterProfile.ROLE_FEMALE_SUPPORTING to 3,
+            )
+            val characters = try {
+                withContext(IO) {
+                    bookKnowledgeGateway.getCharacterProfiles(bookUrl, limit = 50)
+                }.sortedBy { roleOrder[it.role] ?: 99 }
+                    .map {
+                        val tags = GSON.fromJsonArray<String>(it.tagsJson).getOrNull().orEmpty()
+                        BookInfoCharacterUi(
+                            id = it.id,
+                            name = it.name,
+                            avatarUri = it.avatarUri,
+                            role = it.role,
+                            tags = tags.joinToString(" | "),
+                            summary = it.summary,
+                        )
+                    }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                emptyList()
+            }
+            if (currentBook?.bookUrl != bookUrl) return@launch
+            currentCharacters = characters
+            _uiState.update {
+                it.copy(characters = currentCharacters.toImmutableList())
+            }
+        }
+    }
+
+    private fun loadBookKnowledge(bookUrl: String) {
+        knowledgeLoadJob?.cancel()
+        knowledgeLoadJob = viewModelScope.launch {
+            val entries = try {
+                withContext(IO) {
+                    bookKnowledgeGateway.searchKnowledgeEntries(bookUrl, "", null, null, 10)
+                }.map {
+                    BookInfoKnowledgeUi(
+                        id = it.id,
+                        type = it.type,
+                        title = it.title,
+                        summary = it.content.take(80),
+                    )
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                emptyList()
+            }
+            if (currentBook?.bookUrl != bookUrl) return@launch
+            currentKnowledgeEntries = entries
+            _uiState.update {
+                it.copy(knowledgeEntries = currentKnowledgeEntries.toImmutableList())
+            }
+        }
+    }
+
+    private fun loadBookEvents(bookUrl: String) {
+        eventLoadJob?.cancel()
+        eventLoadJob = viewModelScope.launch {
+            val events = try {
+                withContext(IO) {
+                    bookKnowledgeGateway.getCharacterEvents(bookUrl, null, null, 10)
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                emptyList()
+            }
+            if (currentBook?.bookUrl != bookUrl) return@launch
+            val profiles = try {
+                withContext(IO) {
+                    bookKnowledgeGateway.getCharacterProfiles(bookUrl, 200)
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                emptyList()
+            }
+            val nameMap = profiles.associate { it.id to it.name }
+            currentRecentEvents = events.map { event ->
+                BookInfoEventUi(
+                    id = event.id,
+                    chapterTitle = event.chapterTitle,
+                    eventTimeText = event.eventTimeText,
+                    content = event.content.take(80),
+                    characterName = nameMap[event.characterId].orEmpty(),
+                )
+            }
+            _uiState.update {
+                it.copy(recentEvents = currentRecentEvents.toImmutableList())
+            }
+        }
     }
 
     private fun scheduleRelatedBooksLoad(
@@ -1502,6 +1696,12 @@ class BookInfoViewModel(
         book: Book,
     ): Pair<String, List<SearchBook>> {
         return WebBook.exploreBookWithResolvedUrl(source, url, 1, book)
+    }
+
+    private fun showMessage(resId: Int) = showMessage(context.getString(resId))
+
+    private fun showMessage(message: String) {
+        emitEffect(BookInfoEffect.ShowMessage(message))
     }
 
     private fun emitEffect(effect: BookInfoEffect) {

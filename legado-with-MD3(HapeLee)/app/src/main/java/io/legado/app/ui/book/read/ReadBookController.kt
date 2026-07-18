@@ -805,7 +805,6 @@ class ReadBookController(
         when (effect) {
             // ── Already migrated (View-layer) ──
             is ReadBookEffect.Finish -> closeReadBook()
-            is ReadBookEffect.Recreate -> activity.recreate()
             is ReadBookEffect.UpdateReadViewConfig -> {
                 val r = refs ?: return
                 effect.actions.forEach { action ->
@@ -1038,6 +1037,8 @@ class ReadBookController(
             is ReadBookEffect.OpenHttpTtsImportPicker,
             is ReadBookEffect.OpenHttpTtsExportPicker,
             is ReadBookEffect.OpenHttpTtsLogin,
+            ReadBookEffect.OpenTtsEnginesAndVoices,
+            is ReadBookEffect.OpenBookVoiceCasting,
             is ReadBookEffect.OpenHighlightRuleImportPicker,
             is ReadBookEffect.OpenHighlightRuleExportPicker,
             is ReadBookEffect.TtsCacheCleared,

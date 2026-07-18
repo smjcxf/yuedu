@@ -9,10 +9,13 @@ import io.legado.app.data.entities.Book
 import io.legado.app.data.entities.BookChapter
 import io.legado.app.data.entities.BookProgress
 import io.legado.app.data.entities.BookSource
+import io.legado.app.data.entities.ReplaceRule
 import io.legado.app.data.entities.Bookmark
 import io.legado.app.data.entities.HighlightRule
 import io.legado.app.data.entities.HttpTTS
+import io.legado.app.data.repository.ReadAloudSettingsRepository
 import io.legado.app.ui.book.read.page.entities.TextChapter
+import io.legado.app.domain.model.readaloud.SpeechRoleType
 import io.legado.app.ui.book.read.page.entities.TextPage
 import io.legado.app.ui.book.read.page.entities.TextPos
 import io.legado.app.ui.book.searchContent.SearchResult
@@ -95,6 +98,60 @@ data class ReadBookStyleConfig(
     val isDayBgImage: Boolean get() = bgType != 0
     val isNightBgImage: Boolean get() = bgTypeNight != 0
 }
+
+@Stable
+data class ReadSheetConfigUiState(
+    val letterSpacing: Float = 0f,
+    val lineSpacing: Int = 0,
+    val paragraphSpacing: Int = 0,
+    val paragraphIndentCount: Int = 2,
+    val textItalic: Boolean = false,
+    val textBold: Int = 0,
+    val chineseConverterType: Int = 0,
+    val textColor: Int = 0,
+    val textAccentColor: Int = 0,
+    val titleMode: Int = 0,
+    val titleBold: Int = 0,
+    val titleSegType: Int = 0,
+    val titleSegDistance: Int = 0,
+    val titleSegFlag: String = "",
+    val titleSegScaling: Float = 1f,
+    val titleLineSpacingExtra: Int = 0,
+    val titleLineSpacingSub: Int = 0,
+    val titleSize: Int = 0,
+    val titleTopSpacing: Int = 0,
+    val titleBottomSpacing: Int = 0,
+    val titleColor: Int = 0,
+    val titleColorNight: Int = 0,
+    val textColorDay: Int = 0,
+    val textColorNight: Int = 0,
+    val textShadow: Boolean = false,
+    val textShadowColor: Int = 0,
+    val shadowRadius: Float = 0f,
+    val shadowDx: Float = 0f,
+    val shadowDy: Float = 0f,
+    val underline: Boolean = false,
+    val dottedLine: Boolean = false,
+    val underlineExtend: Boolean = false,
+    val underlineColor: Int = 0,
+    val underlineHeight: Int = 0,
+    val underlinePadding: Int = 0,
+    val dottedBase: Float = 0f,
+    val dottedRatio: Float = 0f,
+    val paddingTop: Int = 0,
+    val paddingBottom: Int = 0,
+    val paddingLeft: Int = 0,
+    val paddingRight: Int = 0,
+    val headerPaddingTop: Int = 0,
+    val headerPaddingBottom: Int = 0,
+    val headerPaddingLeft: Int = 0,
+    val headerPaddingRight: Int = 0,
+    val footerPaddingTop: Int = 0,
+    val footerPaddingBottom: Int = 0,
+    val footerPaddingLeft: Int = 0,
+    val footerPaddingRight: Int = 0,
+    val configNames: ImmutableList<String> = persistentListOf(),
+)
 
 @Stable
 data class ChapterSummaryUiState(
@@ -191,6 +248,11 @@ data class ReadBookUiState(
     // Read aloud / auto page
     val isReadAloudRunning: Boolean = false,
     val isReadAloudPaused: Boolean = false,
+    val readAloudEngineName: String = "",
+    val readAloudCharacterName: String = "",
+    val readAloudRoleType: SpeechRoleType = SpeechRoleType.Narrator,
+    val readAloudChapterPosition: Int = 0,
+    val readAloudChapterLength: Int = 0,
     val isAutoPage: Boolean = false,
     // Seek bar
     val seekProgress: Int = 0,
@@ -199,6 +261,8 @@ data class ReadBookUiState(
     val replaceRuleEnabled: Boolean = false,
     val effectiveReplaceCount: Int = 0,
     val effectiveContentProcessCount: Int = 0,
+    val effectiveReplaceRules: ImmutableList<ReplaceRule> = persistentListOf(),
+    val chineseConverterActive: Boolean = false,
     // Translation
     val translationMode: Boolean = false,
     // Chapter info
@@ -237,6 +301,9 @@ data class ReadBookUiState(
     val readAloudIgnoreAudioFocus: Boolean = false,
     val readAloudPauseOnPhoneCall: Boolean = false,
     val readAloudWakeLock: Boolean = false,
+    val showReadAloudCapsule: Boolean = true,
+    val readAloudCapsuleOffsetX: Float = 0f,
+    val readAloudCapsuleOffsetY: Float = 0f,
     val readAloudMediaButtonPerNext: Boolean = false,
     val readAloudByPage: Boolean = false,
     val readAloudSystemMediaCompat: Boolean = true,
@@ -244,9 +311,13 @@ data class ReadBookUiState(
     val readAloudTtsFollowSys: Boolean = false,
     val readAloudTtsSpeechRate: Int = 10,
     val readAloudTtsTimer: Int = 0,
+    val speechAnalysisMode: String = "rule",
+    val useMultiSpeaker: Boolean = true,
+    val defaultReadAloudInterface: String = ReadAloudSettingsRepository.DEFAULT_INTERFACE_CLASSIC,
     val readAloudParagraphInterval: Int = 0,
     // Style config (reactive state for ReadBookConfig)
     val styleConfig: ReadBookStyleConfig = ReadBookStyleConfig(),
+    val sheetConfig: ReadSheetConfigUiState = ReadSheetConfigUiState(),
     // Menu config (from ReadBookConfig via repository)
     val menuConfig: ReadMenuConfig = ReadMenuConfig(),
     val highlightRuleConfig: HighlightRuleConfigUiState = HighlightRuleConfigUiState(),
@@ -514,6 +585,9 @@ sealed interface ReadBookIntent {
     // Replace editor (needs Activity context for ActivityResult)
     data class OpenReplaceEditor(val id: Long, val pattern: String?) : ReadBookIntent
     data object ReplaceRuleChanged : ReadBookIntent
+    data class DisableEffectiveReplace(val rule: ReplaceRule) : ReadBookIntent
+    data object DisableChineseConverter : ReadBookIntent
+    data object DisableReSegment : ReadBookIntent
 
     // Font folder picker (needs Activity context for ActivityResult)
     data object OpenFontFolderPicker : ReadBookIntent
@@ -664,6 +738,9 @@ sealed interface ReadBookIntent {
     data class SetReadAloudIgnoreAudioFocus(val value: Boolean) : ReadBookIntent
     data class SetReadAloudPauseOnPhoneCall(val value: Boolean) : ReadBookIntent
     data class SetReadAloudWakeLock(val value: Boolean) : ReadBookIntent
+    data class SetShowReadAloudCapsule(val value: Boolean) : ReadBookIntent
+    data object ResetReadAloudCapsulePosition : ReadBookIntent
+    data class SetReadAloudCapsulePosition(val x: Float, val y: Float) : ReadBookIntent
     data class SetReadAloudMediaButtonPerNext(val value: Boolean) : ReadBookIntent
     data class SetReadAloudByPage(val value: Boolean) : ReadBookIntent
     data class SetReadAloudSystemMediaCompat(val value: Boolean) : ReadBookIntent
@@ -677,8 +754,15 @@ sealed interface ReadBookIntent {
     data class SetReadAloudTtsTimer(val value: Int) : ReadBookIntent
     data class SetReadAloudTtsFollowSys(val value: Boolean) : ReadBookIntent
     data class SetReadAloudTtsSpeechRate(val value: Int) : ReadBookIntent
+    data class SetSpeechAnalysisMode(val value: String) : ReadBookIntent
+    data class SetUseMultiSpeaker(val value: Boolean) : ReadBookIntent
+    data class SetDefaultReadAloudInterface(val value: String) : ReadBookIntent
     data object OpenSystemTtsSettings : ReadBookIntent
     data object ClearTtsCache : ReadBookIntent
+    data object OpenTtsEnginesAndVoices : ReadBookIntent
+    data object OpenBookVoiceCasting : ReadBookIntent
+    data object OpenReadAloudPlayer : ReadBookIntent
+    data object OpenClassicReadAloudControls : ReadBookIntent
     data class SelectFont(val path: String) : ReadBookIntent
     data class SelectTitleFont(val path: String) : ReadBookIntent
     data class SelectTitleSystemTypeface(val index: Int) : ReadBookIntent
@@ -714,7 +798,6 @@ sealed interface ReadBookEffect {
 
     // Navigation / lifecycle
     data object Finish : ReadBookEffect
-    data object Recreate : ReadBookEffect
 
     // ReadView operations (require Activity/View reference)
     data class UpdateReadViewConfig(val actions: Set<ConfigUpdateAction>) : ReadBookEffect
@@ -820,6 +903,8 @@ sealed interface ReadBookEffect {
     data object OpenHttpTtsImportPicker : ReadBookEffect
     data object OpenHttpTtsExportPicker : ReadBookEffect
     data class OpenHttpTtsLogin(val engineId: Long) : ReadBookEffect
+    data object OpenTtsEnginesAndVoices : ReadBookEffect
+    data class OpenBookVoiceCasting(val bookUrl: String) : ReadBookEffect
     data object OpenHighlightRuleImportPicker : ReadBookEffect
     data object OpenHighlightRuleExportPicker : ReadBookEffect
 
@@ -871,6 +956,7 @@ sealed interface ReadBookSheet {
     data object MoreConfig : ReadBookSheet
     data object BgTextConfig : ReadBookSheet
     data object ReadAloudConfig : ReadBookSheet
+    data object ReadAloudPlayer : ReadBookSheet
     data object SpeakEngineConfig : ReadBookSheet
     data class HttpTtsEdit(val engineId: Long? = null) : ReadBookSheet
     data object PreDownloadConfig : ReadBookSheet
@@ -1026,6 +1112,24 @@ sealed interface ConfigUpdate {
         override val actions = setOf(ConfigUpdateAction.UpdateStyle, ConfigUpdateAction.UpdateContent)
     }
     data class TipFooterRight(val value: Int) : ConfigUpdate {
+        override val actions = setOf(ConfigUpdateAction.UpdateStyle, ConfigUpdateAction.UpdateContent)
+    }
+    data class CustomTipHeaderLeft(val value: String) : ConfigUpdate {
+        override val actions = setOf(ConfigUpdateAction.UpdateStyle, ConfigUpdateAction.UpdateContent)
+    }
+    data class CustomTipHeaderMiddle(val value: String) : ConfigUpdate {
+        override val actions = setOf(ConfigUpdateAction.UpdateStyle, ConfigUpdateAction.UpdateContent)
+    }
+    data class CustomTipHeaderRight(val value: String) : ConfigUpdate {
+        override val actions = setOf(ConfigUpdateAction.UpdateStyle, ConfigUpdateAction.UpdateContent)
+    }
+    data class CustomTipFooterLeft(val value: String) : ConfigUpdate {
+        override val actions = setOf(ConfigUpdateAction.UpdateStyle, ConfigUpdateAction.UpdateContent)
+    }
+    data class CustomTipFooterMiddle(val value: String) : ConfigUpdate {
+        override val actions = setOf(ConfigUpdateAction.UpdateStyle, ConfigUpdateAction.UpdateContent)
+    }
+    data class CustomTipFooterRight(val value: String) : ConfigUpdate {
         override val actions = setOf(ConfigUpdateAction.UpdateStyle, ConfigUpdateAction.UpdateContent)
     }
     data class HeaderFont(val path: String) : ConfigUpdate {
