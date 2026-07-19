@@ -9,13 +9,14 @@ import io.legado.app.data.entities.Book
 import io.legado.app.data.entities.BookChapter
 import io.legado.app.data.entities.BookProgress
 import io.legado.app.data.entities.BookSource
-import io.legado.app.data.entities.ReplaceRule
 import io.legado.app.data.entities.Bookmark
 import io.legado.app.data.entities.HighlightRule
 import io.legado.app.data.entities.HttpTTS
+import io.legado.app.data.entities.ReplaceRule
 import io.legado.app.data.repository.ReadAloudSettingsRepository
-import io.legado.app.ui.book.read.page.entities.TextChapter
 import io.legado.app.domain.model.readaloud.SpeechRoleType
+import io.legado.app.domain.model.settings.ReadStyleItem
+import io.legado.app.ui.book.read.page.entities.TextChapter
 import io.legado.app.ui.book.read.page.entities.TextPage
 import io.legado.app.ui.book.read.page.entities.TextPos
 import io.legado.app.ui.book.searchContent.SearchResult
@@ -93,6 +94,7 @@ data class ReadBookStyleConfig(
     val shareLayout: Boolean = false,
     // Config list for style selector
     val configCount: Int = 1,
+    val styleItems: ImmutableList<ReadStyleItem> = persistentListOf(),
 ) {
     // Computed properties for background mode
     val isDayBgImage: Boolean get() = bgType != 0
@@ -362,18 +364,18 @@ data class ContentProcessItemUi(
 
 @Stable
 data class ReadMenuConfig(
-    val titleBarIconPosition: Int = 0,
+    val titleBarIconPosition: Int = 3,
     val showTitleBarIcons: Boolean = false,
-    val readMenuFloatingBottomBar: Boolean = false,
+    val readMenuFloatingBottomBar: Boolean = true,
     val readMenuBottomCornerRadius: Int = 0,
     val readMenuIconItemsPerRow: Int = 5,
     val readMenuIconRowCount: Int = 1,
-    val readMenuBorderWidth: Int = 0,
+    val readMenuBorderWidth: Int = 1,
     val readMenuBorderColor: Int = 0,
     val readMenuBorderColorNight: Int = 0,
     val readMenuTextColor: Int = 0,
     val readMenuTextColorNight: Int = 0,
-    val readMenuBlurAlpha: Int = 60,
+    val readMenuBlurAlpha: Int = 100,
     val readMenuBlurColor: Int = 0,
     val readMenuBlurColorNight: Int = 0,
     val readMenuPaletteStyle: String = "",
@@ -384,21 +386,22 @@ data class ReadMenuConfig(
     val readMenuTopBarLiquidGlassButtons: Boolean = false,
     val readMenuTopBarTitleCapsule: Boolean = false,
     val readMenuBottomBarLiquidGlassButtons: Boolean = false,
-    val readMenuTopBarBlurStyle: Int = ReadMenuBlurStyle.Progressive,
+    val readMenuTopBarBlurStyle: Int = ReadMenuBlurStyle.Solid,
     val readMenuBottomBarBlurStyle: Int = ReadMenuBlurStyle.Solid,
     val readMenuIconStyle: Int = 0,
     val titleBarIconStyle: Int = 0,
-    val readMenuIconShowText: Boolean = true,
+    val readMenuIconShowText: Boolean = false,
     val readSliderMode: String = "0",
     val titleBarCustomIcons: ImmutableMap<String, String> = persistentMapOf(),
     val readMenuCustomIcons: ImmutableMap<String, String> = persistentMapOf(),
     val titleBarButtons: ImmutableList<ReadBookButtonConfigItem> = persistentListOf(),
     val bottomBarButtons: ImmutableList<ReadBookButtonConfigItem> = persistentListOf(),
-    val showBrightnessView: String = "1",
+    val showBrightnessView: String = "0",
     val brightnessVwPos: String = "1",
     val readBrightness: Int = 100,
     val brightnessAuto: Boolean = false,
-    val showMenuIcon: Boolean = true,
+    val showMenuIcon: Boolean = false,
+    val titleBarCompact: Boolean = false,
 )
 
 @Immutable
@@ -896,7 +899,7 @@ sealed interface ReadBookEffect {
     data object OpenReadStyleImagePicker : ReadBookEffect
     data class OpenReadStyleImagePickerForMode(val isNight: Boolean) : ReadBookEffect
     data object OpenReadStyleImport : ReadBookEffect
-    data object OpenReadStyleExport : ReadBookEffect
+    data class OpenReadStyleExport(val fileName: String) : ReadBookEffect
     data class OpenMenuCustomIconPicker(val id: String) : ReadBookEffect
     data class OpenTitleBarCustomIconPicker(val id: String) : ReadBookEffect
     data object OpenSystemTtsSettings : ReadBookEffect
@@ -1009,7 +1012,7 @@ sealed interface ConfigUpdateAction {
 }
 
 /**
- * Typed config mutations — replaces direct `ReadBookConfig.xxx = value` + `postEvent(UP_CONFIG, ...)`.
+ * Typed config mutations replace direct writes to the legacy ReadBookConfig facade.
  * Each variant carries [actions] that describe which UI updates are needed.
  */
 @Immutable
@@ -1413,6 +1416,10 @@ sealed interface ConfigUpdate {
         override val actions = emptySet<ConfigUpdateAction>()
     }
     data class ShowTitleBarIcons(val value: Boolean) : ConfigUpdate {
+        override val actions = emptySet<ConfigUpdateAction>()
+    }
+
+    data class TitleBarCompact(val value: Boolean) : ConfigUpdate {
         override val actions = emptySet<ConfigUpdateAction>()
     }
 

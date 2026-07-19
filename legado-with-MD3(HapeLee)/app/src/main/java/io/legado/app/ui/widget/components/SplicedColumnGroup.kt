@@ -14,10 +14,9 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import io.legado.app.ui.config.themeConfig.ThemeConfig
 import io.legado.app.ui.theme.LegadoTheme
+import io.legado.app.ui.theme.LocalAppUiConfiguration
 import io.legado.app.ui.theme.ThemeResolver
 import io.legado.app.ui.widget.components.divider.SettingItemDivider
 import io.legado.app.ui.widget.components.title.AdaptiveTitle
@@ -42,10 +41,12 @@ fun SplicedColumnGroup(
     items: @Composable ColumnScope.() -> Unit,
 ) {
     val composeEngine = LegadoTheme.composeEngine
-    val enableItemDivider = ThemeConfig.enableItemDivider
+    val themeSettings = LocalAppUiConfiguration.current.theme
+    val enableItemDivider = themeSettings.enableItemDivider
+    val cornerRadius = if (themeSettings.disableSplicedColumnGroupCornerRadius) 0.dp else 16.dp
     val currentIndex = remember { mutableIntStateOf(0) }
 
-    val groupState = remember {
+    val groupState = remember(enableItemDivider) {
         SplicedColumnGroupState(
             enableItemDivider = enableItemDivider,
             currentIndex = { currentIndex.intValue },
@@ -63,12 +64,12 @@ fun SplicedColumnGroup(
 
         CompositionLocalProvider(LocalSplicedColumnGroupState provides groupState) {
             if (ThemeResolver.isMiuixEngine(composeEngine)) {
-                MiuixCard {
+                MiuixCard(cornerRadius = cornerRadius) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
                             .animateContentSize()
-                            .clip(RoundedCornerShape(16.dp))
+                            .clip(RoundedCornerShape(cornerRadius))
                     ) {
                         currentIndex.intValue = 0
                         items()
@@ -79,7 +80,7 @@ fun SplicedColumnGroup(
                     modifier = Modifier
                         .fillMaxWidth()
                         .animateContentSize()
-                        .clip(RoundedCornerShape(16.dp)),
+                        .clip(RoundedCornerShape(cornerRadius)),
                     verticalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
                     currentIndex.intValue = 0

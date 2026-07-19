@@ -25,6 +25,13 @@ data class ThemeSettings(
     val themeBackgroundColorNight: Int = 0,
     val labelContainerColorNight: Int = 0,
     val containerOpacity: Int = 100,
+    val overrideBaseCardCornerRadius: Boolean = false,
+    val baseCardCornerRadius: Float = 16f,
+    val overrideBaseCardBorder: Boolean = false,
+    val baseCardBorderWidth: Float = 1f,
+    val baseCardBorderColor: Int = 0,
+    val baseCardBorderColorNight: Int = 0,
+    val disableSplicedColumnGroupCornerRadius: Boolean = false,
     val topBarOpacity: Int = 100,
     val bottomBarOpacity: Int = 100,
     val enableBlur: Boolean = false,
@@ -38,6 +45,7 @@ data class ThemeSettings(
     val bookInfoFollowCoverColor: Boolean = true,
     val bookInfoNetworkCoverBackground: String = "on",
     val bookInfoDefaultCoverBackground: String = "on",
+    val bookInfoInputColor: Int = 0,
     val backgroundImageLight: String? = null,
     val backgroundImageDark: String? = null,
     val backgroundImageBlurring: Int = 0,
@@ -89,3 +97,6 @@ fun ThemeSettings.customColors(isDark: Boolean): ThemeCustomColors =
             labelContainer = labelContainerColor,
         )
     }
+
+fun ThemeSettings.hasBackgroundImage(isDark: Boolean): Boolean =
+    if (isDark) !backgroundImageDark.isNullOrBlank() else !backgroundImageLight.isNullOrBlank()
