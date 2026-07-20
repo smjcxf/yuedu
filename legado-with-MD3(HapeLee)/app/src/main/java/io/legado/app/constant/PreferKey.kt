@@ -161,7 +161,9 @@ object PreferKey {
     const val audioPlayWakeLock = "audioPlayWakeLock"
     const val readAloudWakeLock = "readAloudWakeLock"
     const val showReadAloudCapsule = "showReadAloudCapsule"
+    const val capsuleAutoCollapse = "capsuleAutoCollapse"
     const val defaultReadAloudInterface = "defaultReadAloudInterface"
+    const val readAloudPlayerBgMode = "readAloudPlayerBgMode"
     const val showLastUpdateTime = "showLastUpdateTime"
     const val showWaitUpCount = "showWaitUpCount"
     const val clearWebViewData = "clearWebViewData"
@@ -376,6 +378,7 @@ object PreferKey {
     const val selectVibrator = "selectVibrator"
     const val audioCacheCleanTime = "audioCacheCleanTime"
     const val audioPreDownloadNum = "audioPreDownloadNum"
+    const val ttsPreSynthesisConcurrency = "ttsPreSynthesisConcurrency"
     const val ttsParagraphInterval = "ttsParagraphInterval"
     const val customTagColors = "customTagColors"
     const val enableCustomTagColors = "enableCustomTagColors"
@@ -422,4 +425,11 @@ object ReadMenuBlurMode {
 object ReadMenuBlurStyle {
     const val Solid = 0
     const val Progressive = 1
+}
+
+object ReadAloudBgMode {
+    const val Solid = 0
+    const val Blur = 1
+    const val FlowingLight = 2
+    const val Transparent = 3
 }
