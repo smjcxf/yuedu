@@ -396,7 +396,7 @@ class ReadBookViewModel(
 
             is ReadBookIntent.ToggleReadAloud -> {
                 if (!BaseReadAloudService.isRun) {
-                    openReadMenuRoute(ReadBookMenuRoute.ReadAloud)
+                    openDefaultReadAloudInterface()
                 }
                 _effects.tryEmit(ReadBookEffect.ToggleReadAloud)
             }
@@ -532,7 +532,19 @@ class ReadBookViewModel(
             }
 
             is ReadBookIntent.ShowSheet -> {
-                if (intent.sheet is ReadBookSheet.HighlightRuleConfig) {
+                if (intent.sheet is ReadBookSheet.ReadAloudControls) {
+                    _uiState.update {
+                        it.copy(
+                            menuState = ReadBookMenuState(),
+                            activeSheet = intent.sheet,
+                            readAloudTtsTimer = if (BaseReadAloudService.isRun) {
+                                BaseReadAloudService.timeMinute.coerceAtLeast(0)
+                            } else {
+                                it.readAloudTtsTimer
+                            },
+                        )
+                    }
+                } else if (intent.sheet is ReadBookSheet.HighlightRuleConfig) {
                     loadHighlightRules()
                     _uiState.update { it.copy(activeSheet = intent.sheet) }
                 } else if (intent.sheet is ReadBookSheet.ContentProcesses) {
@@ -926,17 +938,7 @@ class ReadBookViewModel(
             }
 
             is ReadBookIntent.TtsProgress -> updateReadAloudProgress(intent.chapterStart)
-            is ReadBookIntent.ReadAloudAction -> {
-                if (_uiState.value.defaultReadAloudInterface ==
-                    ReadAloudSettingsRepository.DEFAULT_INTERFACE_PLAYER
-                ) {
-                    _uiState.update {
-                        it.copy(menuState = ReadBookMenuState(), activeSheet = ReadBookSheet.ReadAloudPlayer)
-                    }
-                } else {
-                    openReadMenuRoute(ReadBookMenuRoute.ReadAloud)
-                }
-            }
+            is ReadBookIntent.ReadAloudAction -> openDefaultReadAloudInterface()
             is ReadBookIntent.ConfirmAddCurrentBookToBookshelf -> addCurrentBookToBookshelfAndFinish()
             is ReadBookIntent.ExitWithoutAddingCurrentBookToBookshelf -> removeCurrentNotShelfBookAndFinish()
 
@@ -1376,8 +1378,7 @@ class ReadBookViewModel(
                 }
             }
             ReadBookIntent.OpenClassicReadAloudControls -> {
-                _uiState.update { it.copy(activeSheet = null) }
-                openReadMenuRoute(ReadBookMenuRoute.ReadAloud)
+                _uiState.update { it.copy(activeSheet = ReadBookSheet.ReadAloudControls) }
             }
 
             is ReadBookIntent.SelectFont -> selectFont(intent.path)
@@ -2486,6 +2487,7 @@ class ReadBookViewModel(
                 readMenuTopBarLiquidGlassButtons = ReadBookConfig.readMenuTopBarLiquidGlassButtons,
                 readMenuTopBarTitleCapsule = ReadBookConfig.readMenuTopBarTitleCapsule,
                 readMenuBottomBarLiquidGlassButtons = ReadBookConfig.readMenuBottomBarLiquidGlassButtons,
+                readMenuFloatingIconLiquidGlass = ReadBookConfig.readMenuFloatingIconLiquidGlass,
                 readMenuTopBarBlurStyle = ReadBookConfig.readMenuTopBarBlurStyle,
                 readMenuBottomBarBlurStyle = ReadBookConfig.readMenuBottomBarBlurStyle,
                 readMenuIconStyle = ReadBookConfig.readMenuIconStyle,
@@ -4846,14 +4848,21 @@ class ReadBookViewModel(
                         route,
                     ),
                 ),
-                readAloudTtsTimer = if (
-                    route == ReadBookMenuRoute.ReadAloud && BaseReadAloudService.isRun
-                ) {
-                    BaseReadAloudService.timeMinute.coerceAtLeast(0)
-                } else {
-                    it.readAloudTtsTimer
-                },
             )
+        }
+    }
+
+    private fun openDefaultReadAloudInterface() {
+        val sheet = if (
+            _uiState.value.defaultReadAloudInterface ==
+            ReadAloudSettingsRepository.DEFAULT_INTERFACE_PLAYER
+        ) {
+            ReadBookSheet.ReadAloudPlayer
+        } else {
+            ReadBookSheet.ReadAloudControls
+        }
+        _uiState.update {
+            it.copy(menuState = ReadBookMenuState(), activeSheet = sheet)
         }
     }
 
@@ -5172,6 +5181,15 @@ class ReadBookViewModel(
                 }
                 _uiState.update {
                     it.copy(menuConfig = it.menuConfig.copy(readMenuBottomBarLiquidGlassButtons = update.value))
+                }
+            }
+
+            is ConfigUpdate.MenuFloatingIconLiquidGlass -> {
+                viewModelScope.launch {
+                    readSettingsRepository.setReadMenuFloatingIconLiquidGlass(update.value)
+                }
+                _uiState.update {
+                    it.copy(menuConfig = it.menuConfig.copy(readMenuFloatingIconLiquidGlass = update.value))
                 }
             }
 
@@ -6541,8 +6559,8 @@ private const val AI_REWRITE_REFERENCE_MAX_EXCERPTS = 6
 private const val AI_REWRITE_REFERENCE_EXCERPT_CHARS = 600
 private val DEFAULT_ENABLED_BUTTON_IDS = setOf(
     "search",
+    "auto_page",
     "catalog",
-    "addBookmark",
     "read_aloud",
     "setting",
 )

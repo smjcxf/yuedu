@@ -160,7 +160,6 @@ import io.legado.app.ui.animation.DampedDragAnimation
 import io.legado.app.ui.book.read.sheet.AutoReadContent
 import io.legado.app.ui.book.read.sheet.HeaderFooterPage
 import io.legado.app.ui.book.read.sheet.PaddingConfigContent
-import io.legado.app.ui.book.read.sheet.ReadAloudContent
 import io.legado.app.ui.book.read.sheet.ReadMenuButtonInfo
 import io.legado.app.ui.book.read.sheet.ReadStyleContent
 import io.legado.app.ui.book.read.sheet.ReadStyleTextTitleContent
@@ -784,36 +783,6 @@ private fun ReadBookMenuSurface(
                                     onIntent(ReadBookIntent.ShowSheet(ReadBookSheet.TitleFontSelect))
                                 },
                                 onIntent = onIntent,
-                            )
-                        }
-                    }
-
-                    ReadBookMenuRoute.ReadAloud -> {
-                        ReadBookMenuRoutePage(
-                            title = stringResource(R.string.aloud_config),
-                            maxHeight = maxHeight,
-                            scrollContent = true,
-                            bottomPadding = if (extendSurfaceToNavigationBar) navBarHeight else 0.dp,
-                            onBack = { onIntent(ReadBookIntent.ReadMenuBack) },
-                        ) {
-                            ReadAloudContent(
-                                state = state,
-                                onIntent = onIntent,
-                                onDismissRequest = { onIntent(ReadBookIntent.HideMenu) },
-                                onOpenChapterList = {
-                                    onIntent(ReadBookIntent.HideMenu)
-                                    onIntent(ReadBookIntent.OpenChapterList)
-                                },
-                                onGoToBackground = {
-                                    onIntent(ReadBookIntent.CloseReadBook(keepReadAloud = true))
-                                },
-                                onOpenMainMenu = {
-                                    onIntent(ReadBookIntent.ReadMenuBack)
-                                },
-                                onShowReadAloudConfig = {
-                                    onIntent(ReadBookIntent.ShowReadAloudConfig)
-                                },
-                                modifier = Modifier.padding(horizontal = 16.dp),
                             )
                         }
                     }
@@ -1940,7 +1909,7 @@ private fun FloatingIconRow(
     backdrop: Backdrop?,
 ) {
     val context = LocalContext.current
-    val titleBarIcons = remember(
+    val floatingIcons = remember(
         state.menuConfig.titleBarButtons,
         state.isReadAloudRunning,
         state.isAutoPage,
@@ -1956,7 +1925,7 @@ private fun FloatingIconRow(
         )
     }
 
-    if (titleBarIcons.isEmpty()) return
+    if (floatingIcons.isEmpty()) return
 
     Row(
         modifier = Modifier
@@ -1970,21 +1939,20 @@ private fun FloatingIconRow(
         },
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        titleBarIcons.forEach { iconDef ->
+        floatingIcons.forEach { iconDef ->
             val customPath = remember(state.menuConfig.titleBarCustomIcons, iconDef.id) {
                 state.menuConfig.titleBarCustomIcons[iconDef.id]
             }
             val isCustom = !customPath.isNullOrBlank()
+            val glassEnabled = !isCustom && state.menuConfig.readMenuFloatingIconLiquidGlass &&
+                    readerMenuLiquidGlassAvailable(backdrop)
             ReadMenuGlassButtonSurface(
                 onClick = iconDef.onClick,
                 colors = colors,
                 backdrop = backdrop,
                 menuConfig = state.menuConfig,
-                glassEnabled = !isCustom && readMenuTopBarButtonLiquidGlassEnabled(
-                    backdrop,
-                    state.menuConfig
-                ),
-                iconStyle = state.menuConfig.titleBarIconStyle,
+                glassEnabled = glassEnabled,
+                iconStyle = 1,
                 selected = iconDef.isActive,
                 modifier = Modifier.padding(horizontal = 4.dp),
                 onLongClick = iconDef.onLongClick,
@@ -3086,11 +3054,11 @@ private fun loadToolButtons(
         infoMap.getValue("read_aloud").toButton(
             isActive = state.isReadAloudRunning,
             onLongClick = {
-                onIntent(ReadBookIntent.OpenReadMenuRoute(ReadBookMenuRoute.ReadAloud))
+                onIntent(ReadBookIntent.ShowSheet(ReadBookSheet.ReadAloudControls))
             },
         ) {
             if (state.isReadAloudRunning) {
-                onIntent(ReadBookIntent.OpenReadMenuRoute(ReadBookMenuRoute.ReadAloud))
+                onIntent(ReadBookIntent.ReadAloudAction)
             } else {
                 onIntent(ReadBookIntent.ToggleReadAloud)
                 onIntent(ReadBookIntent.HideMenu)
@@ -3170,8 +3138,7 @@ private fun readMenuTopBarButtonLiquidGlassEnabled(
     backdrop: Backdrop?,
     menuConfig: ReadMenuConfig,
 ): Boolean {
-    return menuConfig.readMenuTopBarBlurMode != ReadMenuBlurMode.None &&
-            menuConfig.readMenuTopBarLiquidGlassButtons &&
+    return menuConfig.readMenuTopBarLiquidGlassButtons &&
             readerMenuLiquidGlassAvailable(backdrop)
 }
 
@@ -3331,7 +3298,7 @@ private fun readMenuColors(readBarStyle: Int): ReadMenuColors {
 
 // ========== Title Bar Icons ==========
 
-private data class TitleBarIconDef(
+private data class FloatingIconDef(
     val id: String,
     val icon: ImageVector,
     val label: String,
@@ -3345,7 +3312,7 @@ private fun loadFloatingIcons(
     state: ReadBookUiState,
     preferences: ReadPreferences,
     onIntent: (ReadBookIntent) -> Unit,
-): List<TitleBarIconDef> {
+): List<FloatingIconDef> {
     val infoMap = readMenuButtonInfos(context).associateBy { it.id }
 
     val actionMap: Map<String, () -> Unit> = mapOf(
@@ -3353,7 +3320,7 @@ private fun loadFloatingIcons(
         "catalog" to { onIntent(ReadBookIntent.OpenChapterList) },
         "read_aloud" to {
             if (state.isReadAloudRunning) {
-                onIntent(ReadBookIntent.OpenReadMenuRoute(ReadBookMenuRoute.ReadAloud))
+                onIntent(ReadBookIntent.ReadAloudAction)
             } else {
                 onIntent(ReadBookIntent.ToggleReadAloud)
                 onIntent(ReadBookIntent.HideMenu)
@@ -3394,7 +3361,7 @@ private fun loadFloatingIcons(
         .mapNotNull { item ->
             val id = item.id
             val info = infoMap[id] ?: return@mapNotNull null
-            TitleBarIconDef(
+            FloatingIconDef(
                 id = id,
                 icon = info.icon,
                 label = info.label,
@@ -3402,7 +3369,7 @@ private fun loadFloatingIcons(
                 onClick = actionMap[id] ?: {},
                 onLongClick = when (id) {
                     "read_aloud" -> {
-                        { onIntent(ReadBookIntent.OpenReadMenuRoute(ReadBookMenuRoute.ReadAloud)) }
+                        { onIntent(ReadBookIntent.ShowSheet(ReadBookSheet.ReadAloudControls)) }
                     }
 
                     "replace" -> {

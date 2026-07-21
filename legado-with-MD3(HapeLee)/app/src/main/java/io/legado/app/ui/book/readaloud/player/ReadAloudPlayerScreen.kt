@@ -49,12 +49,7 @@ import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.WbTwilight
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.SheetValue.Expanded
-import androidx.compose.material3.SheetValue.Hidden
 import androidx.compose.material3.Slider
-import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -87,7 +82,6 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import dev.chrisbanes.haze.HazeProgressive
@@ -121,42 +115,6 @@ import top.yukonga.miuix.kmp.blur.textureBlur
 import kotlin.math.abs
 import kotlin.math.roundToInt
 import androidx.compose.ui.graphics.BlendMode as ComposeBlendMode
-
-@Composable
-@OptIn(ExperimentalMaterial3Api::class)
-fun ReadAloudPlayerSheet(
-    show: Boolean,
-    onDismissRequest: () -> Unit,
-    state: ReadAloudPlayerUiState,
-    onIntent: (ReadAloudPlayerIntent) -> Unit,
-) {
-    val sheetState = rememberBottomSheetState(
-        initialValue = Hidden,
-        enabledValues = setOf(Hidden, Expanded)
-    )
-    LaunchedEffect(show) {
-        if (show) onIntent(ReadAloudPlayerIntent.Refresh)
-    }
-    if (show) {
-        ModalBottomSheet(
-            onDismissRequest = onDismissRequest,
-            sheetState = sheetState,
-            modifier = Modifier.fillMaxSize(),
-            shape = RectangleShape,
-            sheetMaxWidth = Dp.Unspecified,
-            containerColor = Color.Transparent,
-            contentColor = LegadoTheme.colorScheme.onSurface,
-            contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
-            dragHandle = null,
-        ) {
-            ReadAloudPlayerScreenContent(
-                state = state,
-                onIntent = onIntent,
-                onBack = onDismissRequest,
-            )
-        }
-    }
-}
 
 @OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
@@ -810,6 +768,13 @@ private fun ReadAloudBackground(
             Box(modifier = modifier.fillMaxSize())
         }
 
+        ReadAloudBgMode.Solid -> {
+            CoverBlurBackdrop(
+                state.bookName, state.author, state.coverPath, state.sourceOrigin,
+                modifier = modifier,
+            )
+        }
+
         else -> {
             Box(
                 modifier = modifier
@@ -823,14 +788,27 @@ private fun ReadAloudBackground(
 @Composable
 private fun rememberCoverDerivedPreset(): BgEffectConfig.Config {
     val primary = LegadoTheme.colorScheme.primary
-    val surface = LegadoTheme.colorScheme.surfaceContainerLowest
+    val surface = LegadoTheme.colorScheme.secondaryContainer
     val tertiary = LegadoTheme.colorScheme.secondary
     val isDark = LegadoTheme.isDark
 
-    return remember(primary, surface, tertiary) {
-        val p = primary.toShaderColor()
-        val s = surface.toShaderColor()
-        val t = tertiary.toShaderColor()
+    return remember(primary, surface, tertiary, isDark) {
+        val darken = if (isDark) 0.68f else 0.88f
+        val p = primary.copy(
+            red = primary.red * darken,
+            green = primary.green * darken,
+            blue = primary.blue * darken,
+        ).toShaderColor()
+        val s = surface.copy(
+            red = surface.red * darken,
+            green = surface.green * darken,
+            blue = surface.blue * darken,
+        ).toShaderColor()
+        val t = tertiary.copy(
+            red = tertiary.red * darken,
+            green = tertiary.green * darken,
+            blue = tertiary.blue * darken,
+        ).toShaderColor()
 
         val m = floatArrayOf(
             (p[0] + t[0]) / 2f,

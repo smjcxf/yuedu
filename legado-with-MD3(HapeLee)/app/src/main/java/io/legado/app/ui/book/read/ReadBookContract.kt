@@ -57,7 +57,6 @@ sealed interface ReadBookMenuRoute {
     data object Main : ReadBookMenuRoute
     data object ReadStyle : ReadBookMenuRoute
     data object TextTitle : ReadBookMenuRoute
-    data object ReadAloud : ReadBookMenuRoute
     data object AutoRead : ReadBookMenuRoute
     data object PaddingConfig : ReadBookMenuRoute
     data object HeaderFooterConfig : ReadBookMenuRoute
@@ -369,7 +368,7 @@ data class ReadMenuConfig(
     val titleBarIconPosition: Int = 3,
     val showTitleBarIcons: Boolean = false,
     val readMenuFloatingBottomBar: Boolean = true,
-    val readMenuBottomCornerRadius: Int = 0,
+    val readMenuBottomCornerRadius: Int = 32,
     val readMenuIconItemsPerRow: Int = 5,
     val readMenuIconRowCount: Int = 1,
     val readMenuBorderWidth: Int = 1,
@@ -388,6 +387,7 @@ data class ReadMenuConfig(
     val readMenuTopBarLiquidGlassButtons: Boolean = false,
     val readMenuTopBarTitleCapsule: Boolean = false,
     val readMenuBottomBarLiquidGlassButtons: Boolean = false,
+    val readMenuFloatingIconLiquidGlass: Boolean = false,
     val readMenuTopBarBlurStyle: Int = ReadMenuBlurStyle.Solid,
     val readMenuBottomBarBlurStyle: Int = ReadMenuBlurStyle.Solid,
     val readMenuIconStyle: Int = 0,
@@ -954,7 +954,7 @@ sealed interface ReadBookSheet {
     data object SimulatedReading : ReadBookSheet
     data object ToolButtonConfig : ReadBookSheet
     data object EyeProtection : ReadBookSheet
-    data object TitleBarIconConfig : ReadBookSheet
+    data object FloatingBarIconConfig : ReadBookSheet
     data object EffectiveReplaces : ReadBookSheet
     data object ContentProcesses : ReadBookSheet
     data object ContentEdit : ReadBookSheet
@@ -973,6 +973,7 @@ sealed interface ReadBookSheet {
     data object MoreConfig : ReadBookSheet
     data object BgTextConfig : ReadBookSheet
     data object ReadAloudConfig : ReadBookSheet
+    data object ReadAloudControls : ReadBookSheet
     data object ReadAloudPlayer : ReadBookSheet
     data object SpeakEngineConfig : ReadBookSheet
     data class HttpTtsEdit(val engineId: Long? = null) : ReadBookSheet
@@ -1395,6 +1396,9 @@ sealed interface ConfigUpdate {
         override val actions = emptySet<ConfigUpdateAction>()
     }
     data class MenuBottomBarLiquidGlassButtons(val value: Boolean) : ConfigUpdate {
+        override val actions = emptySet<ConfigUpdateAction>()
+    }
+    data class MenuFloatingIconLiquidGlass(val value: Boolean) : ConfigUpdate {
         override val actions = emptySet<ConfigUpdateAction>()
     }
     data class MenuTopBarBlurSelection(val mode: Int, val style: Int) : ConfigUpdate {

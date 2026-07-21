@@ -79,6 +79,11 @@ class ThemeConfigViewModel(
                 _uiState.update { it.copy(activeSheet = intent.sheet) }
             ThemeConfigIntent.DismissSheet ->
                 _uiState.update { it.copy(activeSheet = null) }
+            is ThemeConfigIntent.ShowDialog ->
+                _uiState.update { it.copy(activeDialog = intent.dialog) }
+            ThemeConfigIntent.DismissDialog ->
+                _uiState.update { it.copy(activeDialog = null) }
+            ThemeConfigIntent.ResetDefaults -> resetDefaults()
             is ThemeConfigIntent.SelectTheme -> selectTheme(intent.value)
             is ThemeConfigIntent.SetThemeMode -> updateAppShell(
                 transform = { it.copy(themeMode = intent.value) },
@@ -163,6 +168,36 @@ class ThemeConfigViewModel(
 
     private fun updateTheme(transform: (ThemeSettings) -> ThemeSettings) {
         viewModelScope.launch { themeSettingsGateway.update(transform) }
+    }
+
+    private fun resetDefaults() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val defaultShell = AppShellSettings()
+            val defaultTheme = ThemeSettings()
+            val currentTheme = _uiState.value.theme
+
+            listOf(currentTheme.backgroundImageLight, currentTheme.backgroundImageDark)
+                .filterNotNull()
+                .map(::File)
+                .filter { it.absolutePath.startsWith(appCtx.externalFiles.absolutePath) }
+                .forEach { it.delete() }
+            listOf("home", "bookshelf", "explore", "rss", "my")
+                .map { File(appCtx.filesDir, "nav_icons/$it.png") }
+                .forEach { it.delete() }
+            currentTheme.appFontPath?.let { path ->
+                File(path)
+                    .takeIf { it.absolutePath.startsWith(appCtx.filesDir.absolutePath) }
+                    ?.delete()
+            }
+
+            appShellSettingsGateway.update { defaultShell }
+            themeSettingsGateway.update { defaultTheme }
+            _effects.tryEmit(ThemeConfigEffect.ApplyDayNight)
+            _effects.tryEmit(ThemeConfigEffect.NotifyMain)
+            _effects.tryEmit(ThemeConfigEffect.ChangeLauncherIcon(defaultShell.launcherIcon))
+            _effects.tryEmit(ThemeConfigEffect.ShowToast(R.string.theme_config_reset_success))
+            _uiState.update { it.copy(activeDialog = null) }
+        }
     }
 
     private fun selectTheme(value: String) {

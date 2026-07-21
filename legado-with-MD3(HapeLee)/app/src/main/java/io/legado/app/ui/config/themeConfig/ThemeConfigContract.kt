@@ -11,17 +11,21 @@ data class ThemeConfigUiState(
     val theme: ThemeSettings = ThemeSettings(),
     val fontFolder: String = "",
     val activeSheet: ThemeConfigSheet? = null,
+    val activeDialog: ThemeConfigDialog? = null,
     val showEInkTheme: Boolean = false,
 )
 
 sealed interface ThemeConfigSheet {
     data class Background(val dark: Boolean) : ThemeConfigSheet
-    data object NavigationIcons : ThemeConfigSheet
     data object MainNavigation : ThemeConfigSheet
     data object LauncherIcon : ThemeConfigSheet
     data object DividerColor : ThemeConfigSheet
     data class BaseCardBorderColor(val dark: Boolean) : ThemeConfigSheet
     data object Font : ThemeConfigSheet
+}
+
+sealed interface ThemeConfigDialog {
+    data object ResetDefaults : ThemeConfigDialog
 }
 
 enum class ThemeTimeField {
@@ -35,6 +39,9 @@ sealed interface ThemeConfigIntent {
     ) : ThemeConfigIntent
     data class ShowSheet(val sheet: ThemeConfigSheet) : ThemeConfigIntent
     data object DismissSheet : ThemeConfigIntent
+    data class ShowDialog(val dialog: ThemeConfigDialog) : ThemeConfigIntent
+    data object DismissDialog : ThemeConfigIntent
+    data object ResetDefaults : ThemeConfigIntent
     data class SelectTheme(val value: String) : ThemeConfigIntent
     data class SetThemeMode(val value: String) : ThemeConfigIntent
     data class SetComposeEngine(val value: String) : ThemeConfigIntent

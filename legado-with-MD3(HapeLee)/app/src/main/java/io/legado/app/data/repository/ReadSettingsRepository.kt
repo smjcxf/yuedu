@@ -263,6 +263,9 @@ class ReadSettingsRepository(
     suspend fun setReadMenuBottomBarLiquidGlassButtons(value: Boolean) =
         settingsRepository.putBoolean(PreferKey.readMenuBottomBarLiquidGlassButtons, value)
 
+    suspend fun setReadMenuFloatingIconLiquidGlass(value: Boolean) =
+        settingsRepository.putBoolean(PreferKey.readMenuFloatingIconLiquidGlass, value)
+
     suspend fun setReadMenuTopBarBlurStyle(value: Int) =
         settingsRepository.putInt(PreferKey.readMenuTopBarBlurStyle, value.coerceIn(0, 1))
 
@@ -404,13 +407,17 @@ class ReadSettingsRepository(
             titleBarIconStyle = compatDsValue(Keys.TitleBarIconStyle, 0),
             readMenuIconItemsPerRow = compatDsValue(Keys.ReadMenuIconItemsPerRow, 5),
             readMenuIconRowCount = compatDsValue(Keys.ReadMenuIconRowCount, 1),
-            readMenuBottomCornerRadius = compatDsValue(Keys.ReadMenuBottomCornerRadius, 0),
+            readMenuBottomCornerRadius = compatDsValue(Keys.ReadMenuBottomCornerRadius, 32),
             readMenuFloatingBottomBar = compatDsValue(Keys.ReadMenuFloatingBottomBar, true),
             readMenuTopBarBlurMode = compatDsValue(Keys.ReadMenuTopBarBlurMode, ReadMenuBlurMode.None),
             readMenuBottomBarBlurMode = compatDsValue(Keys.ReadMenuBottomBarBlurMode, ReadMenuBlurMode.None),
             readMenuTopBarLiquidGlassButtons = compatDsValue(Keys.ReadMenuTopBarLiquidGlassButtons, false),
             readMenuTopBarTitleCapsule = compatDsValue(Keys.ReadMenuTopBarTitleCapsule, false),
             readMenuBottomBarLiquidGlassButtons = compatDsValue(Keys.ReadMenuBottomBarLiquidGlassButtons, false),
+            readMenuFloatingIconLiquidGlass = compatDsValue(
+                Keys.ReadMenuFloatingIconLiquidGlass,
+                false
+            ),
             readMenuTopBarBlurStyle = compatDsValue(
                 Keys.ReadMenuTopBarBlurStyle,
                 ReadMenuBlurStyle.Solid
@@ -522,6 +529,8 @@ class ReadSettingsRepository(
             booleanPreferencesKey(PreferKey.readMenuTopBarTitleCapsule)
         val ReadMenuBottomBarLiquidGlassButtons =
             booleanPreferencesKey(PreferKey.readMenuBottomBarLiquidGlassButtons)
+        val ReadMenuFloatingIconLiquidGlass =
+            booleanPreferencesKey(PreferKey.readMenuFloatingIconLiquidGlass)
         val ReadMenuTopBarBlurStyle = intPreferencesKey(PreferKey.readMenuTopBarBlurStyle)
         val ReadMenuBottomBarBlurStyle = intPreferencesKey(PreferKey.readMenuBottomBarBlurStyle)
         val ReadMenuBlurRadius = intPreferencesKey(PreferKey.readMenuBlurRadius)
