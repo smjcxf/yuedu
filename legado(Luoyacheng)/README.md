@@ -1,8 +1,3 @@
-![icon_android](https://gitee.com/lyc486/yuedu/raw/master/icon_android.png)
-<a href="https://jb.gg/OpenSourceSupport" target="_blank">
-<img width="24" height="24" src="https://resources.jetbrains.com/storage/products/company/brand/logos/jb_beam.svg?_gl=1*135yekd*_ga*OTY4Mjg4NDYzLjE2Mzk0NTE3MzQ.*_ga_9J976DJZ68*MTY2OTE2MzM5Ny4xMy4wLjE2NjkxNjMzOTcuNjAuMC4w&_ga=2.257292110.451256242.1669085120-968288463.1639451734" alt="idea"/>
-</a>
-
 <div align="center">
 <img width="125" height="125" src="https://gitee.com/lyc486/legado/raw/main/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png" alt="legado"/>
 <br>
@@ -55,7 +50,7 @@
 [![Telegram-channel](https://img.shields.io/badge/Σ_Telegram-%E9%A2%91%E9%81%93-blue)](https://t.me/readsigma)
 
 #### WeChat
-[![WeChat-channel](https://img.shields.io/badge/Σ_%e5%be%ae%e4%bf%a1-%e5%85%ac%e4%bc%97%e5%8f%b7-green)](https://mp.weixin.qq.com/s/f54f7yP9HQi6P5Wky8wE1A)  
+[![WeChat-channel](https://img.shields.io/badge/Σ_%e5%be%ae%e4%bf%a1-%e5%85%ac%e4%bc%97%e5%8f%b7-green)](https://mp.weixin.qq.com/mp/appmsgalbum?action=getalbum&album_id=4345046964963590147)  
 <img src="https://open.weixin.qq.com/qr/code?username=legado_plus" width="100">
 
 #### Discord
@@ -78,12 +73,12 @@ https://www.yuque.com/legado/wiki/community
     <img src="https://img.shields.io/badge/-返回顶部-orange.svg" alt="#" align="right">
 </a>
 
-# Other-其他 [![](https://img.shields.io/badge/-Other-F5F5F5.svg)](#Other-其他-)
-##### 免责声明
+# Other-其他 [![](https://img.shields.io/badge/-Other-F5F5F5.svg)](#Other-其他-)  
 
-阅读依赖系统webview提供网页访问功能，通过用户自定义的第三方网页书源返回阅读内容，阅读对其返回内容概不负责，亦不承担任何法律责任。任何第三方网页书源均系他人制作或提供，非软件作者，阅读对其合法性概不负责，亦不承担任何法律责任。第三方网页书源提供的试读，不代表阅读赞成其内容或立场。您应该对用搜索到的结果自行承担风险。
-
-任何单位或个人认为第三方网页书源内容可能涉嫌侵犯其信息网络传播权，应该及时向阅读提出书权力通知，并提供身份证明、权属证明及详细侵权情况证明。阅读在收到上述法律文件后，将会依法尽快屏蔽相关内容。
+<details><summary>免责声明</summary>
+阅读依赖系统webview提供网页访问功能，通过用户自定义的第三方网页书源返回阅读内容，阅读对其返回内容概不负责，亦不承担任何法律责任。任何第三方网页书源均系他人制作或提供，非软件作者，阅读对其合法性概不负责，亦不承担任何法律责任。第三方网页书源提供的试读，不代表阅读赞成其内容或立场。您应该对用搜索到的结果自行承担风险。<br>
+任何单位或个人认为第三方网页书源内容可能涉嫌侵犯其信息网络传播权，应该及时向阅读提出书权力通知，并提供身份证明、权属证明及详细侵权情况证明。阅读在收到上述法律文件后，将会依法尽快屏蔽相关内容。<br>
+</details>
 
 ##### 阅读3.0
 * [书源规则](https://mgz0227.github.io/The-tutorial-of-Legado/)
