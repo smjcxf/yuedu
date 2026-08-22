@@ -742,7 +742,10 @@ class ReadBookViewModel(
             is ReadBookIntent.PrevPage -> ReadBook.moveToPrevPage()
             is ReadBookIntent.NextChapter -> ReadBook.moveToNextChapter(upContent = true)
             is ReadBookIntent.PrevChapter -> ReadBook.moveToPrevChapter(upContent = true, toLast = false)
-            is ReadBookIntent.OpenChapter -> openChapter(intent.index, intent.pos)
+            is ReadBookIntent.OpenChapter -> {
+                ReadBook.saveReadingAnchorBeforeChapterJump(intent.index, intent.pos)
+                openChapter(intent.index, intent.pos)
+            }
             is ReadBookIntent.SkipToPage -> ReadBook.skipToPage(intent.pageIndex)
             is ReadBookIntent.ToggleMenu -> _uiState.update {
                 if (it.menuVisible) {
@@ -851,13 +854,17 @@ class ReadBookViewModel(
             }
 
             is ReadBookIntent.RestoreLastBookProgress -> {
-                _uiState.update { it.copy(activeDialog = null) }
                 ReadBook.restoreLastBookProgress()
+                _uiState.update {
+                    syncFromReadBook(it).copy(activeDialog = null)
+                }
             }
 
             is ReadBookIntent.KeepCurrentBookProgress -> {
-                ReadBook.lastBookProgress = null
-                _uiState.update { it.copy(activeDialog = null) }
+                ReadBook.discardReadingAnchor()
+                _uiState.update {
+                    syncFromReadBook(it).copy(activeDialog = null)
+                }
             }
 
             is ReadBookIntent.ToggleReadAloud -> {
@@ -928,7 +935,10 @@ class ReadBookViewModel(
             is ReadBookIntent.ChangeSourceBook -> changeTo(intent.book)
             is ReadBookIntent.ChangeSource -> changeTo(intent.book, intent.toc)
             is ReadBookIntent.AddSourceAsNewBook -> addToBookshelf(intent.book, intent.toc)
-            is ReadBookIntent.OpenChapterResult -> openChapter(intent.index, intent.chapterPos)
+            is ReadBookIntent.OpenChapterResult -> {
+                ReadBook.saveReadingAnchorBeforeChapterJump(intent.index, intent.chapterPos)
+                openChapter(intent.index, intent.chapterPos)
+            }
             is ReadBookIntent.SourceEditResult -> upBookSource()
             is ReadBookIntent.ReplaceRuleResult -> replaceRuleDelegate.rulesChanged()
             is ReadBookIntent.BookInfoResult -> {
@@ -973,7 +983,7 @@ class ReadBookViewModel(
                 )
             }
             is ReadBookIntent.SeekToChapter -> {
-                ReadBook.saveCurrentBookProgress()
+                ReadBook.saveReadingAnchorBeforeChapterJump(intent.index)
                 openChapter(intent.index)
             }
 
@@ -1335,6 +1345,8 @@ class ReadBookViewModel(
             is ReadBookIntent.ReadAloudNextParagraph -> readAloudDelegate.nextParagraph()
             is ReadBookIntent.ReadAloudPrevChapter -> readAloudDelegate.prevChapter()
             is ReadBookIntent.ReadAloudNextChapter -> readAloudDelegate.nextChapter()
+            ReadBookIntent.BackToSpeakingPosition -> readAloudDelegate.backToSpeakingPosition()
+            ReadBookIntent.ReadAloudFromHere -> ReadBook.readAloud()
             is ReadBookIntent.SetReadAloudTtsTimer -> readAloudDelegate.setTtsTimer(intent.value)
             is ReadBookIntent.SetFinishCurrentChapterAfterTimer ->
                 readAloudDelegate.setFinishCurrentChapterAfterTimer(intent.value)
@@ -1758,6 +1770,7 @@ class ReadBookViewModel(
                     state.copy(
                         isReadAloudRunning = status != ReadAloudSessionStatus.Idle,
                         isReadAloudPaused = status == ReadAloudSessionStatus.Paused,
+                        readAloudFollow = session.followReadAloudPosition,
                         readAloudEngineName = info.engineName,
                         readAloudCharacterName = info.characterName,
                         readAloudRoleType = info.roleType,
@@ -1993,6 +2006,7 @@ class ReadBookViewModel(
             curTextChapter = textChapter,
             seekProgress = calculateSeekProgress(),
             seekMax = calculateSeekMax(),
+            readingAnchorAvailable = ReadBook.hasReadingAnchor(),
             replaceRuleEnabled = book?.getUseReplaceRule(
                 otherSettingsGateway.currentSettings.replaceEnableDefault
             ) ?: false,
