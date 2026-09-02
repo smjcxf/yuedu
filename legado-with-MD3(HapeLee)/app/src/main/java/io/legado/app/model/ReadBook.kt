@@ -11,6 +11,9 @@ import io.legado.app.data.entities.BookSource
 import io.legado.app.data.entities.readRecord.ReadRecord
 import io.legado.app.data.entities.readRecord.ReadRecordSession
 import io.legado.app.data.repository.ReadRecordRepository
+import io.legado.app.domain.gateway.BackupSettingsGateway
+import io.legado.app.domain.gateway.OtherSettingsGateway
+import io.legado.app.domain.gateway.ReadSettingsGateway
 import io.legado.app.help.AppWebDav
 import io.legado.app.help.book.BookHelp
 import io.legado.app.help.book.ContentProcessor
@@ -23,7 +26,6 @@ import io.legado.app.help.book.isSameNameAuthor
 import io.legado.app.help.book.readSimulating
 import io.legado.app.help.book.simulatedTotalChapterNum
 import io.legado.app.help.book.update
-import io.legado.app.help.config.AppConfig
 import io.legado.app.help.config.ReadBookConfig
 import io.legado.app.data.repository.HighlightRuleRepository
 import io.legado.app.help.coroutine.Coroutine
@@ -60,7 +62,6 @@ import io.legado.app.ui.book.read.pageestimate.PageEstimateMetrics
 import io.legado.app.ui.book.read.pageestimate.RoomExactChapterPageCountStore
 import io.legado.app.ui.book.read.pageestimate.WholeBookPageCoordinator
 import io.legado.app.ui.book.read.pageestimate.WholeBookPageState
-import io.legado.app.ui.config.readConfig.ReadConfig
 import io.legado.app.utils.buildMainHandler
 import io.legado.app.utils.dpToPx
 import io.legado.app.utils.postEvent
@@ -160,6 +161,9 @@ object ReadBook : CoroutineScope by MainScope(), KoinComponent {
     var msg: String? = null
     private val readRecordRepository: ReadRecordRepository by inject()
     private val readAloudSessionStore: ReadAloudSessionStore by inject()
+    private val readSettingsGateway: ReadSettingsGateway by inject()
+    private val otherSettingsGateway: OtherSettingsGateway by inject()
+    private val backupSettingsGateway: BackupSettingsGateway by inject()
     private var lastReadLength: Long = 0
     private val loadingChapters = arrayListOf<Int>()
     private val readRecord = ReadRecord()
@@ -276,10 +280,17 @@ object ReadBook : CoroutineScope by MainScope(), KoinComponent {
         publishSnapshot()
     }
 
-    /** 更新当前章节内的阅读位置。 */
-    fun updateReadingPosition(position: Int) {
+    /**
+     * 更新当前章节内的阅读位置。
+     *
+     * @param publish 滚动/点按翻页热路径传 false：只写字段不发布快照。快照里的
+     * chapterPos 没有 UI 消费方（进度显示走 composePagePosition，持久化读字段），
+     * 每次跨页发布的唯一效果是一次全量 UiState 重建落在翻页动画帧上；快照位置随
+     * 下一次结构性发布（切章/换书，重建时读字段）自然刷新。
+     */
+    fun updateReadingPosition(position: Int, publish: Boolean = true) {
         durChapterPos = position
-        publishSnapshot()
+        if (publish) publishSnapshot()
     }
 
     // endregion
@@ -397,8 +408,8 @@ object ReadBook : CoroutineScope by MainScope(), KoinComponent {
                 append(book.config.useReplaceRule)
                 append('|').append(book.config.delTag)
                 append('|').append(book.config.translationMode)
-                append('|').append(AppConfig.chineseConverterType)
-                append('|').append(AppConfig.replaceEnableDefault)
+                append('|').append(readSettingsGateway.currentSettings.chineseConverterType)
+                append('|').append(otherSettingsGateway.currentSettings.replaceEnableDefault)
                 append('|').append(processor.getTitleReplaceRules())
                 append('|').append(processor.getContentReplaceRules())
             },
@@ -467,7 +478,7 @@ object ReadBook : CoroutineScope by MainScope(), KoinComponent {
         if (!wholeBookPageCoordinator.awaitInitialized(layoutGeneration)) return
         val chapters = withContext(IO) { appDb.bookChapterDao.getChapterList(book.bookUrl) }
         val processor = ContentProcessor.get(book)
-        val useReplaceRule = book.getUseReplaceRule(AppConfig.replaceEnableDefault)
+        val useReplaceRule = book.getUseReplaceRule(otherSettingsGateway.currentSettings.replaceEnableDefault)
         val highlightRules = HighlightRuleRepository().loadEnabled(ReadBookConfig.durConfig.name)
         for (chapter in chapters) {
             ensureActive()
@@ -476,7 +487,7 @@ object ReadBook : CoroutineScope by MainScope(), KoinComponent {
             val displayTitle = chapter.getDisplayTitle(
                 processor.getTitleReplaceRules(),
                 useReplaceRule,
-                chineseConverterType = AppConfig.chineseConverterType,
+                chineseConverterType = readSettingsGateway.currentSettings.chineseConverterType,
             )
             val processed = processor.getContent(book, chapter, content, includeTitle = false)
             wholeBookPageCoordinator.updateChapterContent(
@@ -497,7 +508,7 @@ object ReadBook : CoroutineScope by MainScope(), KoinComponent {
                 title = displayTitle,
                 paragraphs = processed.textList,
                 includeTitle = ReadBookConfig.titleMode != 2 || chapter.isVolume || processed.textList.isEmpty(),
-                adaptSpecialStyle = ReadConfig.adaptSpecialStyle,
+                adaptSpecialStyle = readSettingsGateway.currentSettings.adaptSpecialStyle,
                 htmlSemanticTextResolver = AndroidReaderHtmlSemanticTextResolver,
             )
             val environment = readerPaginationEnvironment ?: return
@@ -592,6 +603,21 @@ object ReadBook : CoroutineScope by MainScope(), KoinComponent {
             )
         }
         publishSnapshot()
+        resumeReadAloudWaitingForChapter(snapshots)
+    }
+
+    /**
+     * 朗读换章恢复：curPageChanged 在正文加载完成时机触发朗读重启，但 Compose 渲染
+     * 的章节分页快照要等渲染层排版批次落地才可用（换章时还会先 clearReaderPagination），
+     * newReadAloud 会在"章节分页未完成"处静默放弃且无重试，表现为换章后朗读停止。
+     * 分页快照落地是目标章节就绪的可靠信号：服务仍停在旧章节时在此补一次重启。
+     * 服务章节与当前章节一致的同章重排不受影响。
+     */
+    private fun resumeReadAloudWaitingForChapter(snapshots: List<ReaderChapterPaginationSnapshot>) {
+        if (!BaseReadAloudService.isRun) return
+        if (snapshots.none { it.chapterIndex == durChapterIndex }) return
+        if (BaseReadAloudService.currentChapterIndex == durChapterIndex) return
+        readAloud(play = !BaseReadAloudService.pause)
     }
 
     fun publishReaderPaginationEnvironment(
@@ -660,7 +686,7 @@ object ReadBook : CoroutineScope by MainScope(), KoinComponent {
                     ConfigUpdateAction.RebuildWholeBookPageIndex,
                 )
             )
-            if (ReadConfig.readBarStyleFollowPage) {
+            if (readSettingsGateway.currentSettings.readBarStyleFollowPage) {
                 postEvent(EventBus.UPDATE_READ_ACTION_BAR, true)
             }
         }
@@ -774,7 +800,7 @@ object ReadBook : CoroutineScope by MainScope(), KoinComponent {
         uploadSuccessAction: (() -> Unit)? = null,
         syncSuccessAction: (() -> Unit)? = null
     ) {
-        if (!ReadConfig.syncBookProgress) return
+        if (!backupSettingsGateway.currentSettings.syncBookProgress) return
         val book = book ?: return
         Coroutine.async {
             AppWebDav.getBookProgress(book)
@@ -1541,8 +1567,8 @@ object ReadBook : CoroutineScope by MainScope(), KoinComponent {
         val contentProcessor = ContentProcessor.get(book.name, book.origin)
         val displayTitle = chapter.getDisplayTitle(
             contentProcessor.getTitleReplaceRules(),
-            book.getUseReplaceRule(AppConfig.replaceEnableDefault),
-            chineseConverterType = AppConfig.chineseConverterType,
+            book.getUseReplaceRule(otherSettingsGateway.currentSettings.replaceEnableDefault),
+            chineseConverterType = readSettingsGateway.currentSettings.chineseConverterType,
         )
         val contents = contentProcessor
             .getContent(book, chapter, content, includeTitle = false)
@@ -1565,7 +1591,7 @@ object ReadBook : CoroutineScope by MainScope(), KoinComponent {
             title = displayTitle,
             paragraphs = contents.textList,
             includeTitle = ReadBookConfig.titleMode != 2 || chapter.isVolume || contents.textList.isEmpty(),
-            adaptSpecialStyle = ReadConfig.adaptSpecialStyle,
+            adaptSpecialStyle = readSettingsGateway.currentSettings.adaptSpecialStyle,
             htmlSemanticTextResolver = AndroidReaderHtmlSemanticTextResolver,
         )
         val readerChapterInput = ReaderChapterInput(
@@ -1706,8 +1732,8 @@ object ReadBook : CoroutineScope by MainScope(), KoinComponent {
                     appDb.bookChapterDao.getChapter(book.bookUrl, durChapterIndex)?.let {
                         book.durChapterTitle = it.getDisplayTitle(
                             ContentProcessor.get(book.name, book.origin).getTitleReplaceRules(),
-                            book.getUseReplaceRule(AppConfig.replaceEnableDefault),
-                            chineseConverterType = AppConfig.chineseConverterType,
+                            book.getUseReplaceRule(otherSettingsGateway.currentSettings.replaceEnableDefault),
+                            chineseConverterType = readSettingsGateway.currentSettings.chineseConverterType,
                         )
                         SourceCallBack.callBackBook(SourceCallBack.SAVE_READ, bookSource, book, it)
                     }
@@ -1742,7 +1768,7 @@ object ReadBook : CoroutineScope by MainScope(), KoinComponent {
     private fun preDownload() {
         if (book?.isLocal == true) return
         executor.execute {
-            if (ReadConfig.preDownloadNum < 2) {
+            if (readSettingsGateway.currentSettings.preDownloadNum < 2) {
                 return@execute
             }
             preDownloadTask?.cancel()
@@ -1750,7 +1776,7 @@ object ReadBook : CoroutineScope by MainScope(), KoinComponent {
                 //预下载
                 launch {
                     val maxChapterIndex =
-                        min(durChapterIndex + ReadConfig.preDownloadNum, chapterSize)
+                        min(durChapterIndex + readSettingsGateway.currentSettings.preDownloadNum, chapterSize)
                     for (i in durChapterIndex.plus(2)..maxChapterIndex) {
                         if (downloadedChapters.contains(i)) continue
                         if ((downloadFailChapters[i] ?: 0) >= 3) continue
@@ -1758,7 +1784,7 @@ object ReadBook : CoroutineScope by MainScope(), KoinComponent {
                     }
                 }
                 launch {
-                    val minChapterIndex = durChapterIndex - min(5, ReadConfig.preDownloadNum)
+                    val minChapterIndex = durChapterIndex - min(5, readSettingsGateway.currentSettings.preDownloadNum)
                     for (i in durChapterIndex.minus(2) downTo minChapterIndex) {
                         if (downloadedChapters.contains(i)) continue
                         if ((downloadFailChapters[i] ?: 0) >= 3) continue
