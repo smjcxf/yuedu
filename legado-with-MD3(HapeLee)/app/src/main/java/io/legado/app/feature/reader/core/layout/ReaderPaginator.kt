@@ -192,10 +192,10 @@ object ReaderPaginator {
         fun columnLeft() = config.paddingLeftPx + columnIndex * config.columnStridePx
         fun columnHasContent() = elements.size > columnElementStart
 
-        fun addPageUnderline(rowElementStart: Int, lineBottom: Float) {
+        fun addPageUnderline(underlineElementStart: Int, lineBottom: Float) {
             val underline = config.pageUnderline ?: return
-            if (elements.size <= rowElementStart) return
-            val rowElements = elements.subList(rowElementStart, elements.size)
+            if (elements.size <= underlineElementStart) return
+            val rowElements = elements.subList(underlineElementStart, elements.size)
             val start = if (underline.extendToColumn) columnLeft()
                 else rowElements.minOf { it.bounds.left }
             val end = if (underline.extendToColumn) columnLeft() + config.contentWidthPx
@@ -423,6 +423,23 @@ object ReaderPaginator {
                     is ReaderMeasuredInlineItem.Image -> "\uFFFC"
                 }
             }
+            fun backgroundImage(index: Int) =
+                (paragraph.items[index] as? ReaderMeasuredInlineItem.Text)
+                    ?.style?.backgroundImage?.takeIf { it.fit == 3 }
+
+            fun backgroundInsetBefore(index: Int, lineStart: Int): Float {
+                val image = backgroundImage(index) ?: return 0f
+                return if (index == lineStart || backgroundImage(index - 1) != image) {
+                    image.contentInsetLeftPx
+                } else 0f
+            }
+
+            fun backgroundInsetAfter(index: Int, lineEnd: Int): Float {
+                val image = backgroundImage(index) ?: return 0f
+                return if (index + 1 == lineEnd || backgroundImage(index + 1) != image) {
+                    image.contentInsetRightPx
+                } else 0f
+            }
             val breaker = ChineseLineBreaker(
                 clusters = clusters,
                 widthsPx = paragraph.items.map { it.widthPx + letterSpacing },
@@ -434,11 +451,40 @@ object ReaderPaginator {
                 firstLineWidthPx = (config.contentWidthPx - indentWidth)
                     .coerceAtLeast(0f).toInt(),
             )
-            // Nine-slice edges are a paint-time frame around a matched run.  They must not
-            // take width away from the text line: doing so made large left/right slices create
-            // artificial one-character lines and inflated justification gaps.  Keep the same
-            // text shaping boundary as the View reader, then expand only the drawn background.
-            val starts = breaker.lineClusterStarts
+            val originalEnds = breaker.lineClusterStarts.drop(1)
+            val starts = mutableListOf(0)
+            // The View reader reserves the left/right pieces around every visual-line run.
+            // Refine the shaped line ends so those pieces cannot overlap adjacent text or
+            // escape the column. Keep a forbidden Chinese break intact even if its frame has
+            // to consume the remaining slack, matching the legacy punctuation priority.
+            while (starts.last() < paragraph.items.size) {
+                val from = starts.last()
+                val lineIndent =
+                    if (starts.size == 1) indentWidth else paragraph.restLineIndentWidthPx
+                val available = config.contentWidthPx - lineIndent
+                // Advance the original visual-line cursor even when a frame forces the
+                // preceding row shorter. Reusing the first end after `from` would strand the
+                // remainder of that row as an unnecessary one-character line.
+                var until = originalEnds.getOrElse(starts.lastIndex) { paragraph.items.size }
+                    .coerceAtLeast(from + 1)
+
+                fun occupiedWidth(endExclusive: Int): Float =
+                    (from until endExclusive).sumOf { index ->
+                        (paragraph.items[index].widthPx +
+                                backgroundInsetBefore(index, from) +
+                                backgroundInsetAfter(index, endExclusive)).toDouble()
+                    }.toFloat() + letterSpacing * (endExclusive - from - 1).coerceAtLeast(0)
+                while (until - from > 1 && occupiedWidth(until) > available) {
+                    val candidate = until - 1
+                    if (ChineseLineBreaker.isForbiddenBreak(
+                            clusters[candidate - 1],
+                            clusters[candidate]
+                        )
+                    ) break
+                    until = candidate
+                }
+                starts += until
+            }
             for (lineIndex in 0 until starts.lastIndex) {
                 val from = starts[lineIndex]
                 val until = starts[lineIndex + 1]
@@ -475,8 +521,13 @@ object ReaderPaginator {
                 if (y + actualLineHeight > config.contentBottomPx && columnHasContent()) advanceColumn()
                 val indent = if (lineIndex == 0) indentWidth else paragraph.restLineIndentWidthPx
                 val available = (config.contentWidthPx - indent).coerceAtLeast(0f)
+                fun backgroundInsetBefore(index: Int) = backgroundInsetBefore(from + index, from)
+                fun backgroundInsetAfter(index: Int) = backgroundInsetAfter(from + index, until)
                 val naturalWidth = lineItems.sumOf { it.widthPx.toDouble() }.toFloat() +
-                        letterSpacing * (lineItems.size - 1).coerceAtLeast(0)
+                        letterSpacing * (lineItems.size - 1).coerceAtLeast(0) +
+                        lineItems.indices.sumOf {
+                            (backgroundInsetBefore(it) + backgroundInsetAfter(it)).toDouble()
+                        }.toFloat()
                 val indentItems = (paragraph.leadingIndentItems - from).coerceIn(0, lineItems.size)
                 val stretchableGaps = (lineItems.size - indentItems - 1).coerceAtLeast(0)
                 val shouldJustify =
@@ -528,7 +579,11 @@ object ReaderPaginator {
                         }
                     }
                 }
+                // Processed body text can retain its indentation as real leading glyphs.
+                // The View reader started a non-extended underline after those glyphs.
+                val underlineElementStart = elements.size + indentItems
                 lineItems.forEachIndexed { itemIndex, item ->
+                    x += backgroundInsetBefore(itemIndex)
                     val itemBackground = (item as? ReaderMeasuredInlineItem.Text)
                         ?.style?.backgroundImage
                     when (item) {
@@ -577,11 +632,11 @@ object ReaderPaginator {
                         }
                     }
                     pageText.append(if (item is ReaderMeasuredInlineItem.Text) item.value else '\uFFFC')
-                    x += item.widthPx + letterSpacing +
+                    x += item.widthPx + backgroundInsetAfter(itemIndex) + letterSpacing +
                         if (item is ReaderMeasuredInlineItem.Text && item.value == " ") wordSpaceExtra else 0f
                     x += if (itemIndex >= indentItems) justifyGap else 0f
                 }
-                addPageUnderline(rowElementStart, y + actualLineHeight)
+                addPageUnderline(underlineElementStart, y + actualLineHeight)
                 columnRows += ReaderLayoutRow(rowElementStart, elements.size, y, y + actualLineHeight)
                 y += actualLineHeight * paragraph.lineSpacingMultiplier
             }
