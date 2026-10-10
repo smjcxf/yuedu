@@ -12,6 +12,8 @@ import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -234,15 +236,35 @@ private fun webViewEntryMetadata(predictiveBackEnabled: Boolean) = metadata {
     }
 }
 
-/** Full-screen book destinations use modal overlay scene strategy and zero nav display transitions; animations are managed by BookMorphHost. */
-private fun readerEntryMetadata(predictiveBackEnabled: Boolean) =
-    ModalOverlaySceneStrategy.modalOverlay() + metadata {
-        put(NavDisplay.TransitionKey) { EnterTransition.None togetherWith ExitTransition.None }
-        put(NavDisplay.PopTransitionKey) { EnterTransition.None togetherWith ExitTransition.None }
+/** 全屏书页（阅读/漫画）走普通 nav3 场景：与文本阅读页同一段 600ms 交叉淡入淡出。 */
+private fun readerEntryMetadata(predictiveBackEnabled: Boolean) = metadata {
+    put(NavDisplay.TransitionKey) {
+        fadeIn(animationSpec = tween(600)) togetherWith fadeOut(animationSpec = tween(600))
+    }
+    put(NavDisplay.PopTransitionKey) {
+        fadeIn(animationSpec = tween(600)) togetherWith fadeOut(animationSpec = tween(600))
+    }
+    if (predictiveBackEnabled) {
         put(NavDisplay.PredictivePopTransitionKey) { _ ->
-            EnterTransition.None togetherWith ExitTransition.None
+            fadeIn(animationSpec = tween(600)) togetherWith fadeOut(animationSpec = tween(600))
         }
     }
+}
+
+/** 详情页更快一档：它是「打开一本书」的第二段，下面还压着阅读页。 */
+private fun bookInfoEntryMetadata(predictiveBackEnabled: Boolean) = metadata {
+    put(NavDisplay.TransitionKey) {
+        fadeIn(animationSpec = tween(300)) togetherWith fadeOut(animationSpec = tween(300))
+    }
+    put(NavDisplay.PopTransitionKey) {
+        fadeIn(animationSpec = tween(300)) togetherWith fadeOut(animationSpec = tween(300))
+    }
+    if (predictiveBackEnabled) {
+        put(NavDisplay.PredictivePopTransitionKey) { _ ->
+            fadeIn(animationSpec = tween(300)) togetherWith fadeOut(animationSpec = tween(300))
+        }
+    }
+}
 
 /** Keep parent overlays composed while NavDisplay leaves animation to the search scene or player host. */
 private fun modalOverlayEntryMetadata(): Map<String, Any> =
@@ -304,7 +326,7 @@ fun MainActivity.mainEntryProvider(
     homePlaybackCapsuleEnabled: Boolean,
     capsuleAnchorPreview: io.legado.app.domain.model.PlaybackCapsuleState?,
 ) = entryProvider {
-    entry<MainRouteToc>(metadata = ModalOverlaySceneStrategy.pageSlide { closeBookPage(backStack) }) { route ->
+    entry<MainRouteToc> { route ->
         TocRouteScreen(
             bookUrl = route.bookUrl,
             initialPage = route.initialPage,
@@ -322,11 +344,7 @@ fun MainActivity.mainEntryProvider(
             },
         )
     }
-    entry<MainRouteBookInfoEdit>(metadata = ModalOverlaySceneStrategy.pageSlide {
-        closeBookPage(
-            backStack
-        )
-    }) { route ->
+    entry<MainRouteBookInfoEdit> { route ->
         val viewModel = koinViewModel<BookInfoEditViewModel>()
         LaunchedEffect(route.bookUrl) { viewModel.loadBook(route.bookUrl) }
         BookInfoEditScreen(
@@ -347,22 +365,14 @@ fun MainActivity.mainEntryProvider(
             onOpenEventList = { onNavigateToRoute(MainRouteBookEventList(it)) },
         )
     }
-    entry<MainRouteReplaceRules>(metadata = ModalOverlaySceneStrategy.pageSlide {
-        closeBookPage(
-            backStack
-        )
-    }) { route ->
+    entry<MainRouteReplaceRules> { route ->
         ReplaceRuleRouteScreen(
             bookUrl = route.bookUrl,
             onBackClick = { closeBookPage(backStack, route) },
             onNavigateToEdit = { onNavigateToRoute(MainRouteReplaceEdit(it)) },
         )
     }
-    entry<MainRouteReplaceEdit>(metadata = ModalOverlaySceneStrategy.pageSlide {
-        closeBookPage(
-            backStack
-        )
-    }) { route ->
+    entry<MainRouteReplaceEdit> { route ->
         val viewModel =
             koinViewModel<ReplaceEditViewModel>(key = "replace_edit_${route.editor.sessionId}") {
                 parametersOf(route.editor)
@@ -570,9 +580,6 @@ fun MainActivity.mainEntryProvider(
                     )
                 }
             },
-            onNavigateToMultiRoleRule = {
-                onNavigateToRoute(MainRouteMultiRoleRule)
-            },
             onNavigateToBackupSettings = {
                 onNavigateToRoute(MainRouteSettingsBackup)
             },
@@ -661,6 +668,8 @@ fun MainActivity.mainEntryProvider(
             onBackClick = { onNavigateBack() },
             onNavigateToOther = { backStack.add(MainRouteSettingsOther) },
             onNavigateToRead = { backStack.add(MainRouteSettingsRead) },
+            // 朗读规则 hub：入口从「我的」移到设置，页面标题与这里统一叫「朗读设置」
+            onNavigateToReadAloud = { backStack.add(MainRouteMultiRoleRule) },
             onNavigateToCover = { backStack.add(MainRouteSettingsCover) },
             onNavigateToTheme = { backStack.add(MainRouteSettingsTheme) },
             onNavigateToBackup = { backStack.add(MainRouteSettingsBackup) },
@@ -963,7 +972,6 @@ fun MainActivity.mainEntryProvider(
                     onNavigateToRoute(
                         MainRouteBookInfo(
                             name, author, bookUrl,
-                            useCoverMorph = false,
                             openRequestId = System.nanoTime(),
                         )
                     )
@@ -980,6 +988,9 @@ fun MainActivity.mainEntryProvider(
                 },
                 onOpenVoiceCasting = { bookUrl ->
                     onNavigateToRoute(MainRouteBookVoiceCasting(bookUrl))
+                },
+                onOpenReadAloudSubPage = { page ->
+                    onNavigateToRoute(page.toMainRoute())
                 },
                 onOpenTtsEnginesAndVoices = {
                     onNavigateToRoute(MainRouteCloudTtsEngines(route.bookUrl))
@@ -1084,7 +1095,6 @@ fun MainActivity.mainEntryProvider(
             viewModel = mangaViewModel,
             onOpenToc = { bookUrl, page -> onNavigateToRoute(MainRouteToc(bookUrl, page)) },
             restoreSystemBarsVisible = configuration.appShell.showStatusBar,
-            predictiveBackEnabled = configuration.appShell.predictiveBackEnabled,
             sharedTransitionScope = sharedTransitionScope,
             animatedVisibilityScope = LocalNavAnimatedContentScope.current,
             sharedCoverKey = route.sharedCoverKey,
@@ -1101,7 +1111,6 @@ fun MainActivity.mainEntryProvider(
                 onNavigateToRoute(
                     MainRouteBookInfo(
                         name, author, bookUrl,
-                        useCoverMorph = false,
                         openRequestId = System.nanoTime(),
                     )
                 )
@@ -1318,7 +1327,7 @@ fun MainActivity.mainEntryProvider(
     }
 
     entry<MainRouteBookInfo>(
-        metadata = readerEntryMetadata(configuration.appShell.predictiveBackEnabled)
+        metadata = bookInfoEntryMetadata(configuration.appShell.predictiveBackEnabled)
     ) { route ->
         val bookInfoViewModel = koinViewModel<BookInfoViewModel>(key = "BookInfo:${route.bookUrl}")
         ConsumeBookPageResult(route, backStack.lastOrNull() == route, navRouteTracker) { result ->
@@ -1388,10 +1397,8 @@ fun MainActivity.mainEntryProvider(
                         bookUrl = bookUrl,
                         inBookshelf = inBookshelf,
                         chapterChanged = chapterChanged,
-                        sharedCoverKey = bookInfoCoverSharedElementKey(
-                            bookUrl,
-                            route.openRequestId
-                        ),
+                        // 与详情页封面登记在同一个 key 上，封面才能从详情页继续飞进阅读页。
+                        sharedCoverKey = route.sharedCoverKey ?: bookCoverSharedElementKey(bookUrl),
                     )
                 )
             },
@@ -1402,10 +1409,7 @@ fun MainActivity.mainEntryProvider(
                         inBookshelf = inBookshelf,
                         chapterChanged = chapterChanged,
                         openRequestId = System.nanoTime(),
-                        sharedCoverKey = bookInfoCoverSharedElementKey(
-                            bookUrl,
-                            route.openRequestId
-                        ),
+                        sharedCoverKey = route.sharedCoverKey ?: bookCoverSharedElementKey(bookUrl),
                     )
                 )
             },
@@ -1445,14 +1449,10 @@ fun MainActivity.mainEntryProvider(
             sharedTransitionScope = sharedTransitionScope,
             animatedVisibilityScope = LocalNavAnimatedContentScope.current,
             sharedCoverKey = route.sharedCoverKey ?: bookCoverSharedElementKey(route.bookUrl),
-            useCoverMorph = route.useCoverMorph,
-            detailCoverKey = bookInfoCoverSharedElementKey(route.bookUrl, route.openRequestId),
-            predictiveBackEnabled = configuration.appShell.predictiveBackEnabled,
-            isTopRoute = backStack.lastOrNull() == route,
         )
     }
 
-    entry<MainRouteBookCharacterDetail>(metadata = ModalOverlaySceneStrategy.pageSlide(onNavigateBack)) { route ->
+    entry<MainRouteBookCharacterDetail> { route ->
         val context = LocalContext.current
         val scope = rememberCoroutineScope()
         var pendingAvatarUri by rememberSaveable { mutableStateOf<String?>(null) }
@@ -1519,7 +1519,7 @@ fun MainActivity.mainEntryProvider(
         )
     }
 
-    entry<MainRouteBookCharacterNetwork>(metadata = ModalOverlaySceneStrategy.pageSlide(onNavigateBack)) { route ->
+    entry<MainRouteBookCharacterNetwork> { route ->
         val viewModel = koinViewModel<BookCharacterNetworkViewModel>(
             key = "BookCharacterNetwork:${route.bookUrl}",
             parameters = { parametersOf(route.bookUrl) }
@@ -1536,7 +1536,7 @@ fun MainActivity.mainEntryProvider(
         )
     }
 
-    entry<MainRouteBookCharacterList>(metadata = ModalOverlaySceneStrategy.pageSlide(onNavigateBack)) { route ->
+    entry<MainRouteBookCharacterList> { route ->
         val viewModel = koinViewModel<BookCharacterListViewModel>(
             key = "CharacterList:${route.bookUrl}",
             parameters = { parametersOf(route.bookUrl) }
@@ -1553,7 +1553,7 @@ fun MainActivity.mainEntryProvider(
         )
     }
 
-    entry<MainRouteBookVoiceCasting>(metadata = ModalOverlaySceneStrategy.pageSlide(onNavigateBack)) { route ->
+    entry<MainRouteBookVoiceCasting> { route ->
         val viewModel = koinViewModel<BookVoiceCastingViewModel>(
             key = "BookVoiceCasting:${route.bookUrl}",
             parameters = { parametersOf(route.bookUrl) },
@@ -1570,7 +1570,7 @@ fun MainActivity.mainEntryProvider(
         )
     }
 
-    entry<MainRouteCloudTtsEngines>(metadata = ModalOverlaySceneStrategy.pageSlide(onNavigateBack)) { route ->
+    entry<MainRouteCloudTtsEngines> { route ->
         val viewModel = koinViewModel<CloudTtsViewModel>()
         LaunchedEffect(route.bookUrl) {
             viewModel.onIntent(CloudTtsIntent.SetBookContext(route.bookUrl))
@@ -1609,13 +1609,13 @@ fun MainActivity.mainEntryProvider(
         )
     }
 
-    entry<MainRouteTtsCache>(metadata = ModalOverlaySceneStrategy.pageSlide(onNavigateBack)) {
+    entry<MainRouteTtsCache> {
         TtsCacheRouteScreen(
             onBackClick = { onNavigateBack() },
         )
     }
 
-    entry<MainRouteBookKnowledgeList>(metadata = ModalOverlaySceneStrategy.pageSlide(onNavigateBack)) { route ->
+    entry<MainRouteBookKnowledgeList> { route ->
         val viewModel = koinViewModel<BookKnowledgeListViewModel>(
             key = "KnowledgeList:${route.bookUrl}",
             parameters = { parametersOf(route.bookUrl) }
@@ -1632,7 +1632,7 @@ fun MainActivity.mainEntryProvider(
         )
     }
 
-    entry<MainRouteBookKnowledgeDetail>(metadata = ModalOverlaySceneStrategy.pageSlide(onNavigateBack)) { route ->
+    entry<MainRouteBookKnowledgeDetail> { route ->
         val viewModel = koinViewModel<BookKnowledgeDetailViewModel>(
             key = "KnowledgeDetail:${route.bookUrl}:${route.entryId.orEmpty()}",
             parameters = { parametersOf(route.bookUrl, route.entryId) }
@@ -1645,7 +1645,7 @@ fun MainActivity.mainEntryProvider(
         )
     }
 
-    entry<MainRouteBookEventList>(metadata = ModalOverlaySceneStrategy.pageSlide(onNavigateBack)) { route ->
+    entry<MainRouteBookEventList> { route ->
         val viewModel = koinViewModel<BookEventListViewModel>(
             key = "EventList:${route.bookUrl}",
             parameters = { parametersOf(route.bookUrl) }
@@ -1662,7 +1662,7 @@ fun MainActivity.mainEntryProvider(
         )
     }
 
-    entry<MainRouteBookEventDetail>(metadata = ModalOverlaySceneStrategy.pageSlide(onNavigateBack)) { route ->
+    entry<MainRouteBookEventDetail> { route ->
         val viewModel = koinViewModel<BookEventDetailViewModel>(
             key = "EventDetail:${route.bookUrl}:${route.eventId.orEmpty()}",
             parameters = { parametersOf(route.bookUrl, route.eventId) }
