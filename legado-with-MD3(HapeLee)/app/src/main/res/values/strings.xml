@@ -101,6 +101,7 @@
     <string name="book_source_login">Book source login</string>
     <string name="setting">Settings</string>
     <string name="theme_setting">Theme Settings</string>
+    <string name="theme_refactor_tip">Some screens are not rebuilt with Compose yet, so they look quite different from the rest of the app.</string>
     <string name="theme_setting_s">Some settings related to interface or color</string>
     <string name="personalization_setting">Advanced Personalization</string>
     <string name="personalization_setting_s">Fine-tune fonts and other appearance details</string>
@@ -2201,6 +2202,7 @@
     <string name="show_original">Show Original</string>
     <string name="retranslate_chapter">Retranslate Chapter</string>
     <string name="retranslate_confirm">This will delete the existing translation and re-translate. Continue?</string>
+    <string name="retranslate_in_progress">This chapter is still translating, try again in a moment</string>
     <string name="translation_in_progress">Translating: %1$d%%</string>
     <string name="translation_failed">Translation failed: %1$s</string>
     <string name="no_translation_cache">No translation cache</string>
@@ -2674,6 +2676,7 @@
     <string name="import_status_existing">Existing</string>
     <string name="import_status_error">Error</string>
     <string name="details">Details</string>
+    <string name="details_of">%1$s details</string>
     <string name="error_details">Error Details</string>
     <string name="reload">Reload</string>
     <string name="no_more_data">No more data</string>
