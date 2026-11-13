@@ -22,7 +22,6 @@ import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -84,6 +83,11 @@ fun SettingItem(
     choiceUnavailableIds: Set<String> = emptySet(),
     /** 点击不可用档位时的提示回调；为 `null` 时该档位真正禁用。 */
     onChoiceUnavailableSelected: ((String) -> Unit)? = null,
+    /**
+     * 选中后等弹层收起再回调。切换根主题这类会立刻重建 composition 的操作必须开启：
+     * Mochi 的浮层挂在 DecorView 上，测量期间摘除子视图会出问题。默认 false 保持既有调用方。
+     */
+    choiceCommitAfterDismiss: Boolean = false,
     onClick: (() -> Unit)? = null,
     onLongClick: (() -> Unit)? = null,
     enabled: Boolean = true,
@@ -126,6 +130,7 @@ fun SettingItem(
                 modifier = Modifier.matchParentSize(),
                 unavailableIds = choiceUnavailableIds,
                 onUnavailableSelected = onChoiceUnavailableSelected,
+                commitAfterDismiss = choiceCommitAfterDismiss,
                 embeddedExpanded = showMenu,
                 onDismissRequest = { showMenu = false },
             )
@@ -170,7 +175,7 @@ fun SettingItem(
         {
             val tint = if (couiColors != null) {
                 if (enabled) couiColors.summary else couiColors.disabled
-            } else MaterialTheme.colorScheme.onSurfaceVariant
+            } else LegadoTheme.colorScheme.onSurfaceVariant
             if (painter != null) {
                 Icon(painter = painter, contentDescription = null, tint = tint)
             } else if (imageVector != null) {
@@ -189,7 +194,7 @@ fun SettingItem(
                         fontFamily = if (isCoui) LegadoTheme.typography.bodySmallEmphasized.fontFamily else null,
                         color = if (couiColors != null) {
                             if (enabled) couiColors.summary else couiColors.disabled
-                        } else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                        } else LegadoTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                     )
                 }
                 if (option != null && trailingOption == null) {
@@ -197,7 +202,7 @@ fun SettingItem(
                         AppText(
                             option,
                             style = LegadoTheme.typography.labelMediumEmphasized,
-                            color = MaterialTheme.colorScheme.primary,
+                            color = LegadoTheme.colorScheme.primary,
                         )
                         if (useOptionAnchor) menu()
                     }
@@ -251,7 +256,7 @@ fun SettingItem(
             ),
         cornerRadius = cornerRadius,
         colors = CardDefaults.cardColors(
-            containerColor = color ?: if (grouped) Color.Transparent else MaterialTheme.colorScheme.surfaceContainerLow
+            containerColor = color ?: if (grouped) Color.Transparent else LegadoTheme.colorScheme.surfaceContainerLow
         ),
     ) {
         Column {
