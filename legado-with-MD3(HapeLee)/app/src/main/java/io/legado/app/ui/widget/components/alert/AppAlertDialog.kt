@@ -1,6 +1,5 @@
 package io.legado.app.ui.widget.components.alert
 
-import android.os.Build
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -22,11 +21,20 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.DialogProperties
+import com.itos.coui.dialog.CouiDialogAction
+import com.itos.coui.dialog.CouiDialogActionStyle
+import com.itos.coui.dialog.CouiDialogDefaults
+import com.itos.coui.dialog.CouiDialogPlacement
+import com.itos.coui.dialog.Dialog as CouiDialog
+import com.itos.coui.menu.rememberCouiWindowBackdrop
+import com.itos.coui.theme.CouiTheme
 import io.legado.app.ui.theme.ComposeEngine
 import io.legado.app.ui.theme.LegadoTheme
 import io.legado.app.ui.theme.LegadoTheme.composeEngine
 import io.legado.app.ui.theme.LocalAppUiConfiguration
 import io.legado.app.ui.theme.LocalHasMiuixPopupHost
+import io.legado.app.ui.theme.ThemeResolver
 import io.legado.app.ui.theme.LocalMiuixBarBackdrop
 import io.legado.app.ui.theme.ProvideAppDensity
 import io.legado.app.ui.theme.rememberMochiOverlayBackdrop
@@ -64,9 +72,10 @@ fun AppAlertDialog(
     when (composeEngine) {
         ComposeEngine.Miuix -> {
             val themeSettings = LocalAppUiConfiguration.current.theme
+            // 开关打开后只走玻璃；无玻璃设施的独立窗口（如朗读悬浮窗）才退回窗口弹窗。
             val useGlassContainer = themeSettings.useHyperOs4Components &&
-                LocalHasMiuixPopupHost.current &&
-                Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+                ThemeResolver.isBlurSupported() &&
+                LocalAppGlassOverlay.current != null
             val backdrop = LocalMiuixBarBackdrop.current
             val glassOverlay = LocalAppGlassOverlay.current
             val dialogBody: @Composable () -> Unit = {
@@ -195,7 +204,7 @@ fun AppAlertDialog(
                 }
             }
         }
-        ComposeEngine.Material, ComposeEngine.Coui -> {
+        ComposeEngine.Material -> {
             if (show) {
                 AlertDialog(
                     onDismissRequest = onDismissRequest,
@@ -251,6 +260,62 @@ fun AppAlertDialog(
                 )
             }
         }
+        ComposeEngine.Coui -> {
+            val windowBackdrop = rememberCouiWindowBackdrop()
+            // COUI 弹窗只有材质形态；AppTheme 在 COUI 引擎下必定提供页面背景源。
+            val useMaterial = windowBackdrop != null && CouiDialogDefaults.isMaterialSupported()
+            val dark = CouiTheme.isDark
+            CouiDialog(
+                modifier = modifier,
+                onDismissRequest = onDismissRequest,
+                title = title,
+                message = text,
+                dark = dark,
+                confirmAction = onConfirm?.let {
+                    CouiDialogAction(
+                        text = confirmText,
+                        onClick = it,
+                        enabled = confirmEnabled,
+                        style = CouiDialogActionStyle.Primary,
+                        colors = CouiDialogDefaults.primaryActionColors(CouiTheme.colorScheme.accent),
+                    )
+                },
+                dismissAction = onDismiss?.let { CouiDialogAction(text = dismissText, onClick = it) },
+                placement = CouiDialogPlacement.Bottom,
+                material = if (useMaterial) CouiDialogDefaults.material(dark) else null,
+                backdrop = windowBackdrop.takeIf { useMaterial },
+                properties = DialogProperties(
+                    usePlatformDefaultWidth = false,
+                    windowTitle = title.orEmpty(),
+                ),
+                visible = show,
+            ) {
+                if (content != null) {
+                    ProvideAppDensity {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(
+                                    start = CouiDialogDefaults.contentPadding,
+                                    end = CouiDialogDefaults.contentPadding,
+                                    top = if (title.isNullOrEmpty() && text.isNullOrEmpty()) {
+                                        CouiDialogDefaults.contentPadding
+                                    } else {
+                                        16.dp
+                                    },
+                                    bottom = if (onConfirm == null && onDismiss == null) {
+                                        CouiDialogDefaults.messageBottom
+                                    } else {
+                                        0.dp
+                                    },
+                                )
+                        ) {
+                            content()
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -271,7 +336,7 @@ fun <T> AppAlertDialog(
     dismissText: String = "取消",
     onDismiss: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
-    content: (@Composable (T) -> Unit)? = null
+    content: (@Composable (T) -> Unit)? = null,
 ) {
     var cachedData by remember { mutableStateOf(data) }
 
@@ -299,7 +364,7 @@ fun <T> AppAlertDialog(
             confirmEnabled = confirmEnabled,
             dismissText = dismissText,
             onDismiss = onDismiss,
-            content = content?.let { { it(currentData) } }
+            content = content?.let { { it(currentData) } },
         )
     }
 }
