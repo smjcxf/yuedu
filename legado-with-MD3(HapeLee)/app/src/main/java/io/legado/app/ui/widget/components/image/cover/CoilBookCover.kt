@@ -36,6 +36,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.dropShadow
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Size
@@ -44,6 +45,7 @@ import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.shadow.Shadow
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
@@ -56,6 +58,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.withSave
+import coil3.Image
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import io.legado.app.core.ui.morph.BookCoverMorphAnchors
@@ -136,6 +139,7 @@ fun BookCoverImage(
     animatedVisibilityScope: AnimatedVisibilityScope? = null,
     requestBuilder: ImageRequest.Builder.() -> Unit = {},
     onImageAspectRatio: ((Float) -> Unit)? = null,
+    onImageLoaded: ((Image) -> Unit)? = null,
     builtInFallback: (@Composable BoxScope.() -> Unit)? = null,
 ) {
     val context = LocalContext.current
@@ -183,6 +187,7 @@ fun BookCoverImage(
             isUsingDefaultCover ||
                 (showLoadingPlaceholder && showLoadingDefault)
         )
+    var loadedDefaultImage by remember(randomPath) { mutableStateOf<Image?>(null) }
     Box(
         modifier = modifier.then(
             with(sharedTransitionScope) {
@@ -210,7 +215,13 @@ fun BookCoverImage(
                 contentDescription = null,
                 imageLoader = koinInject(),
                 contentScale = contentScale,
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.fillMaxSize(),
+                onSuccess = { state ->
+                    if (onImageLoaded != null && !isOnlineCoverLoaded) {
+                        loadedDefaultImage = state.result.image
+                        if (finalPath == null || onlineCoverLoadFailed) onImageLoaded(state.result.image)
+                    }
+                },
             )
         }
 
@@ -262,12 +273,16 @@ fun BookCoverImage(
                     }
                     isOnlineCoverLoaded = true
                     onlineCoverLoadFailed = false
+                    loadedDefaultImage = null
+                    onImageLoaded?.invoke(state.result.image)
                     onSuccess?.invoke()
                     onLoadFinish?.invoke()
                 },
                 onError = {
                     isOnlineCoverLoaded = false
                     onlineCoverLoadFailed = true
+                    // A custom cover might already be painted as the loading placeholder.
+                    loadedDefaultImage?.let { onImageLoaded?.invoke(it) }
                     onError?.invoke()
                     onLoadFinish?.invoke()
                 }
@@ -318,6 +333,8 @@ fun CoilBookCover(
     showBadgeDot: Boolean = false,
     leftBottomText: String? = null,
     onImageAspectRatio: ((Float) -> Unit)? = null,
+    coverShadow: Shadow? = null,
+    onImageLoaded: ((Image) -> Unit)? = null,
     /** Replaces the built-in icon and text while retaining user-configured default cover art. */
     builtInFallback: (@Composable BoxScope.() -> Unit)? = null,
 ) {
@@ -396,9 +413,11 @@ fun CoilBookCover(
                 }
             )
             .then(
-                if (coverSettings.showShadow) {
-                    Modifier.shadow(4.dp, shape)
-                } else Modifier
+                when {
+                    coverShadow != null -> Modifier.dropShadow(shape, coverShadow)
+                    coverSettings.showShadow -> Modifier.shadow(4.dp, shape)
+                    else -> Modifier
+                }
             )
             .background(
                 if (!hasCustomDefault && !isOnlineCoverLoaded) {
@@ -421,6 +440,7 @@ fun CoilBookCover(
             ignoreUseDefaultCover = ignoreUseDefaultCover,
             showLoadingPlaceholder = showLoadingPlaceholder,
             onImageAspectRatio = onImageAspectRatio,
+            onImageLoaded = onImageLoaded,
             onSuccess = {
                 isOnlineCoverLoaded = true
                 onlineCoverLoadFailed = false

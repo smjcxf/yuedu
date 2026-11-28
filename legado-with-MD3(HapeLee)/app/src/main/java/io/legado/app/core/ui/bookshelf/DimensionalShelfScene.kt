@@ -14,10 +14,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -26,6 +30,7 @@ import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -42,6 +47,7 @@ import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -63,11 +69,18 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil3.Image
 import io.legado.app.R
 import io.legado.app.ui.theme.LegadoTheme
+import io.legado.app.ui.theme.LocalAppUiConfiguration
+import io.legado.app.ui.theme.extractSeedColor
 import io.legado.app.ui.widget.components.image.cover.CoilBookCover
+import io.legado.app.ui.widget.components.image.cover.isDefaultCoverPath
 import io.legado.app.ui.widget.components.text.AppText
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.atan2
@@ -138,7 +151,40 @@ internal fun DimensionalShelfScene(
     val openLabel = stringResource(R.string.dimensional_bookshelf_open_book)
     val previewLabel = stringResource(R.string.dimensional_bookshelf_preview_book)
     val colors = LegadoTheme.colorScheme
-    val shadowTint = Color.Black.copy(alpha = if (LegadoTheme.isDark) 0.64f else 0.26f)
+    val dark = LegadoTheme.isDark
+    val shadowTint = Color.Black.copy(alpha = if (dark) 0.64f else 0.26f)
+    val coverSettings = LocalAppUiConfiguration.current.cover
+    val defaultCovers = if (dark) coverSettings.defaultCoverDark else coverSettings.defaultCover
+    val paletteKeys = remember(books, defaultCovers, coverSettings.useDefaultCover) {
+        books.map { book ->
+            book to defaultCovers.takeIf {
+                coverSettings.useDefaultCover || isDefaultCoverPath(book.cover)
+            }
+        }
+    }
+    val coverColors = remember { mutableStateMapOf<Pair<DimensionalShelfBook, String?>, Color>() }
+    val pendingColors = remember { mutableSetOf<Pair<DimensionalShelfBook, String?>>() }
+    val colorWorkers = remember { Semaphore(2) }
+    val colorScope = rememberCoroutineScope()
+    val resources = LocalContext.current.resources
+    val activePaletteKeys = rememberUpdatedState(remember(paletteKeys) { paletteKeys.toSet() })
+    LaunchedEffect(paletteKeys) {
+        coverColors.keys.retainAll(activePaletteKeys.value)
+    }
+    fun sampleCoverColor(key: Pair<DimensionalShelfBook, String?>, image: Image) {
+        // A looping shelf can show the same book in more than one slot.
+        if (coverColors[key] != null || !pendingColors.add(key)) return
+        colorScope.launch {
+            try {
+                val seed = colorWorkers.withPermit {
+                    image.extractSeedColor(resources, colors.onSurfaceVariant)
+                }
+                if (seed != null && key in activePaletteKeys.value) coverColors[key] = seed
+            } finally {
+                pendingColors.remove(key)
+            }
+        }
+    }
     Box(modifier.fillMaxWidth().clipToBounds()) {
         val dimensions = rememberShelfDimensions(viewportWidth)
         val period = books.size + 1
@@ -212,6 +258,8 @@ internal fun DimensionalShelfScene(
                     key(slot) {
                         val index = slot.mod(period)
                         val book = books.getOrNull(index)
+                        val paletteKey = paletteKeys.getOrNull(index)
+                        val accent = paletteKey?.let(coverColors::get)
                         val ordinal = if (book == null) "" else
                             stringResource(R.string.dimensional_bookshelf_spine_number, index + 1)
                         val semantics = if (book != null && slot in accessibleSlots) {
@@ -243,6 +291,12 @@ internal fun DimensionalShelfScene(
                         ShelfVolume(
                             book = book,
                             number = ordinal,
+                            coverColor = accent,
+                            onCoverLoaded = if (paletteKey != null && accent == null) {
+                                { image -> sampleCoverColor(paletteKey, image) }
+                            } else {
+                                null
+                            },
                             slot = slot,
                             position = position,
                             dimensions = dimensions,
@@ -356,6 +410,8 @@ private fun smoothStep(value: Float): Float {
 private fun ShelfVolume(
     book: DimensionalShelfBook?,
     number: String,
+    coverColor: Color?,
+    onCoverLoaded: ((Image) -> Unit)?,
     slot: Int,
     position: State<Double>,
     dimensions: ShelfDimensions,
@@ -449,6 +505,7 @@ private fun ShelfVolume(
                     title = book.title,
                     number = number,
                     brush = spineBrush,
+                    coverColor = coverColor,
                     modifier = spineModifier,
                 )
             }
@@ -469,6 +526,7 @@ private fun ShelfVolume(
                         bookUrl = book.bookUrl,
                         preferCache = preferCache,
                         radius = 1.5.dp,
+                        onImageLoaded = onCoverLoaded,
                         builtInFallback = { ShelfFallbackCover(book.title, book.author) },
                     )
                 } else {
@@ -497,11 +555,15 @@ private fun Modifier.dividerPattern(ink: Color, cellSize: Dp) = drawWithCache {
             val y = size.height / 2f + (row - (rows - 1) / 2f) * spacing
             repeat(columns) { column ->
                 val x = size.width / 2f + (column - (columns - 1) / 2f) * spacing
-                moveTo(x, y - halfHeight)
-                lineTo(x + halfWidth, y)
-                lineTo(x, y + halfHeight)
-                lineTo(x - halfWidth, y)
-                close()
+                if ((row + column) % 2 == 0) {
+                    moveTo(x, y - halfHeight)
+                    lineTo(x + halfWidth, y)
+                    lineTo(x, y + halfHeight)
+                    lineTo(x - halfWidth, y)
+                    close()
+                } else {
+                    addOval(Rect(x - halfWidth, y - halfWidth, x + halfWidth, y + halfWidth))
+                }
             }
         }
     }
@@ -548,6 +610,7 @@ private fun ShelfSpine(
     title: String,
     number: String,
     brush: Brush,
+    coverColor: Color?,
     modifier: Modifier,
 ) {
     val colors = LegadoTheme.colorScheme
@@ -578,6 +641,10 @@ private fun ShelfSpine(
                 val ruleY = size.height - 22.dp.toPx()
                 val ruleInset = 2.dp.toPx()
                 val ruleWidth = 0.8.dp.toPx()
+                val colorDot = coverColor?.let { lerp(it, colors.onSurface, 0.18f) }
+                    ?: colors.onSurfaceVariant.copy(alpha = 0.36f)
+                val dotRadius = 2.dp.toPx()
+                val dotCenter = Offset(size.width / 2f, size.height - 8.dp.toPx())
                 val frame: DrawScope.() -> Unit = {
                     drawLine(
                         color = colors.onSurface.copy(alpha = 0.09f),
@@ -585,6 +652,7 @@ private fun ShelfSpine(
                         end = Offset(size.width - ruleInset, ruleY),
                         strokeWidth = ruleWidth,
                     )
+                    drawCircle(colorDot, radius = dotRadius, center = dotCenter)
                 }
                 if (upright) {
                     val cellHeight = titleSize + 2.dp.toPx()

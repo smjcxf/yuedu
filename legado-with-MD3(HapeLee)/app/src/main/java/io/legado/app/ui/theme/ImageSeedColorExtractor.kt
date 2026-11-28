@@ -1,6 +1,7 @@
 package io.legado.app.ui.theme
 
 import android.content.Context
+import android.content.res.Resources
 import android.graphics.Bitmap
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
@@ -11,9 +12,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.graphics.drawable.toBitmap
 import androidx.core.graphics.scale
+import coil3.Image
 import coil3.ImageLoader
 import coil3.asDrawable
 import coil3.request.ImageRequest
@@ -46,10 +49,23 @@ suspend fun ImageLoader.extractSeedColor(
         execute(request)
     } as? SuccessResult ?: return null
 
-    return withContext(Dispatchers.Default) {
-        val bitmap = result.image.asDrawable(context.resources)
-            .toSafeBitmap(IMAGE_COLOR_EXTRACT_SIZE_PX)
-        Color(bitmap.extractSeedColor())
+    return result.image.extractSeedColor(context.resources)
+}
+
+internal suspend fun Image.extractSeedColor(
+    resources: Resources,
+    fallback: Color = Color(IMAGE_FALLBACK_SEED_COLOR),
+): Color? = withContext(Dispatchers.Default) {
+    val bitmap = asDrawable(resources).toSafeBitmap(IMAGE_COLOR_EXTRACT_SIZE_PX)
+    val readable = if (bitmap.config == Bitmap.Config.HARDWARE) {
+        bitmap.copy(Bitmap.Config.ARGB_8888, false) ?: return@withContext null
+    } else {
+        bitmap
+    }
+    try {
+        Color(readable.extractSeedColor(fallbackColorArgb = fallback.toArgb()))
+    } finally {
+        if (readable !== bitmap) readable.recycle()
     }
 }
 

@@ -16,8 +16,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.shadow.Shadow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import coil3.Image
 import io.legado.app.core.ui.morph.BookCoverMorphAnchors
 import io.legado.app.ui.theme.LegadoTheme
 import io.legado.app.ui.widget.components.card.TextCard
@@ -53,6 +55,8 @@ fun BookshelfCover(
     sharedCoverKey: String? = null,
     /** 内容模糊：透传给封面组件，作用点在共享元素节点内部，转场时才不会被落下 */
     contentBlur: Dp = 0.dp,
+    coverShadow: Shadow? = null,
+    onImageLoaded: ((Image) -> Unit)? = null,
     /** 盖在封面上的叠加层（遮罩/点阵/锁标），必须渲染在共享节点内部 */
     overlayContent: (@Composable BoxScope.() -> Unit)? = null,
 ) {
@@ -73,6 +77,8 @@ fun BookshelfCover(
             sharedCoverKey = sharedCoverKey,
             contentBlur = contentBlur,
             overlayContent = overlayContent,
+            coverShadow = coverShadow,
+            onImageLoaded = onImageLoaded,
             badgeText = badgeText,
             showBadgeDot = showBadgeDot,
             leftBottomText = leftBottomText,

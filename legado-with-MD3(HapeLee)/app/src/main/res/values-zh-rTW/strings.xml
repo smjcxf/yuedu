@@ -1580,6 +1580,7 @@
     <string name="homepage_layout_config_label">佈局配置</string>
     <string name="homepage_edit_raw_json">編輯原始 JSON (LayoutConfig)</string>
     <string name="home_recent_reading">最近閱讀</string>
+    <string name="home_recent_book_position">第 %1$d 本，共 %2$d 本</string>
     <string name="home_recent_books">最近閱讀記錄</string>
     <string name="home_dashboard_settings">首頁元件</string>
     <string name="home_no_recent_reading">暫無閱讀記錄</string>

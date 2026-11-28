@@ -6,6 +6,7 @@ import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.basicMarquee
@@ -30,15 +31,14 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
-import io.legado.app.ui.widget.components.coui.appVerticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccessTime
-import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.CloudUpload
@@ -54,6 +54,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -62,27 +64,53 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.GraphicsLayerScope
+import androidx.compose.ui.graphics.LayerOutsets
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.shadow.Shadow
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.FirstBaseline
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.hideFromAccessibility
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.DpOffset
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.compose.currentStateAsState
+import coil3.Image
 import io.legado.app.R
 import io.legado.app.core.ui.bookshelf.DimensionalBookshelf
 import io.legado.app.core.ui.bookshelf.DimensionalShelfBook
@@ -104,7 +132,9 @@ import io.legado.app.ui.main.homepage.HomepageModuleManageSheet
 import io.legado.app.ui.main.homepage.HomepageUiState
 import io.legado.app.ui.main.homepage.HomepageViewModel
 import io.legado.app.ui.theme.LegadoTheme
+import io.legado.app.ui.theme.LocalAppUiConfiguration
 import io.legado.app.ui.theme.extendIntoHorizontalPadding
+import io.legado.app.ui.theme.extractSeedColor
 import io.legado.app.ui.widget.components.AppPullToRefresh
 import io.legado.app.ui.widget.components.AppScaffold
 import io.legado.app.ui.widget.components.alert.AppAlertDialog
@@ -112,8 +142,8 @@ import io.legado.app.ui.widget.components.book.SearchBookPreviewSheet
 import io.legado.app.ui.widget.components.button.series.MediumTonalButton
 import io.legado.app.ui.widget.components.button.series.SmallTonalButton
 import io.legado.app.ui.widget.components.card.GlassCard
-import io.legado.app.ui.widget.components.card.TextCard
 import io.legado.app.ui.widget.components.conflict.BookshelfConflictSheet
+import io.legado.app.ui.widget.components.coui.appVerticalScroll
 import io.legado.app.ui.widget.components.icon.AppIcon
 import io.legado.app.ui.widget.components.icon.AppIcons
 import io.legado.app.ui.widget.components.image.cover.BookshelfCover
@@ -127,17 +157,20 @@ import io.legado.app.ui.widget.components.topbar.GlassMediumFlexibleTopAppBar
 import io.legado.app.ui.widget.components.topbar.GlassTopAppBarDefaults
 import io.legado.app.ui.widget.components.topbar.TopBarActionButton
 import io.legado.app.utils.isContentScheme
-import kotlinx.collections.immutable.persistentListOf
-import kotlinx.collections.immutable.toImmutableList
 import io.legado.app.utils.sendToClip
 import io.legado.app.utils.takePersistablePermissionSafely
 import io.legado.app.utils.toastOnUi
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
 import java.text.DateFormat
 import java.util.Date
+import kotlin.math.abs
+import kotlin.math.floor
 import kotlin.math.roundToInt
 
 @Composable
@@ -725,9 +758,12 @@ internal fun HomeDashboardContent(
         }
 
         if (HomeDashboardSection.RecentBook in state.visibleSections) {
+            val recentBooks = remember(state.recentBook, state.recentBooks) {
+                (listOfNotNull(state.recentBook) + state.recentBooks).toImmutableList()
+            }
             RecentBookCard(
-                book = state.recentBook,
-                onClick = { onIntent(HomeIntent.RecentBookClick) },
+                books = recentBooks,
+                onBookClick = { url -> onIntent(HomeIntent.RecentHistoryBookClick(url)) },
                 sharedTransitionScope = sharedTransitionScope,
                 animatedVisibilityScope = animatedVisibilityScope,
             )
@@ -807,6 +843,7 @@ private fun StatisticCard(
 ) {
     GlassCard(
         modifier = modifier,
+        containerColor = LegadoTheme.colorScheme.surfaceContainerLow,
         onClick = onClick,
     ) {
         Row(
@@ -860,138 +897,105 @@ private fun StatisticCard(
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 private fun RecentBookCard(
-    book: HomeRecentBookUi?,
-    onClick: () -> Unit,
+    books: ImmutableList<HomeRecentBookUi>,
+    onBookClick: (String) -> Unit,
     sharedTransitionScope: SharedTransitionScope?,
     animatedVisibilityScope: AnimatedVisibilityScope?,
 ) {
+    val pagerState = rememberPagerState { books.size }
+    val bodyHeight = recentBookBodyHeight()
+    val colors = LegadoTheme.colorScheme
+    val coverSettings = LocalAppUiConfiguration.current.cover
+    val isDark = LegadoTheme.isDark
+    val coverColors = remember(coverSettings, isDark) {
+        mutableStateMapOf<Pair<String, String?>, Color>()
+    }
+    LaunchedEffect(books, coverColors) {
+        coverColors.keys.retainAll(books.mapTo(mutableSetOf()) { it.recentCoverColorKey() })
+    }
     GlassCard(
         modifier = Modifier.fillMaxWidth(),
-        onClick = if (book?.bookUrl != null) onClick else null,
+        containerColor = colors.surfaceContainerLow,
     ) {
-        Box(
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            book?.chapterProgress?.let { progress ->
-                RecentReadingProgress(
-                    progress = progress,
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .fillMaxWidth(),
+        Box(Modifier.fillMaxWidth()) {
+            if (books.isNotEmpty()) {
+                RecentBookCoverGlow(
+                    books = books,
+                    coverColors = coverColors,
+                    pagerState = pagerState,
+                    modifier = Modifier.matchParentSize(),
                 )
             }
-
-            Column(
-                modifier = Modifier.padding(
-                    start = 16.dp,
-                    end = 16.dp,
-                    top = 16.dp,
-                    bottom = 14.dp
-                ),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
+            Column(Modifier.fillMaxWidth()) {
                 Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 16.dp, top = 16.dp, end = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    AppIcon(
-                        imageVector = Icons.Default.Book,
-                        contentDescription = null,
-                        tint = LegadoTheme.colorScheme.primary,
-                    )
                     AppText(
                         text = stringResource(R.string.home_recent_reading),
+                        modifier = Modifier.weight(1f),
                         style = LegadoTheme.typography.titleMediumEmphasized,
                     )
+                    if (books.size > 1) {
+                        RecentBookPageIndicator(pagerState = pagerState, pageCount = books.size)
+                    }
                 }
 
-                if (book == null) {
-                    Row(
+                if (books.isEmpty()) {
+                    Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(96.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center,
+                            .height(bodyHeight)
+                            .padding(horizontal = 16.dp),
+                        contentAlignment = Alignment.Center,
                     ) {
                         AppText(
                             text = stringResource(R.string.home_no_recent_reading),
-                            color = LegadoTheme.colorScheme.onSurfaceVariant,
+                            color = colors.onSurfaceVariant,
                         )
                     }
                 } else {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(14.dp),
-                        verticalAlignment = Alignment.CenterVertically,
+                    val stackWidth = if (books.size > 1) 84.dp else 68.dp
+                    val landingVisible = remember { mutableStateOf(false) }
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .height(bodyHeight)
+                            .onGloballyPositioned {
+                                landingVisible.value = !it.boundsInWindow().isEmpty
+                            },
                     ) {
-                        BookshelfCover(
-                            name = book.name,
-                            author = book.author,
-                            path = book.coverPath,
-                            sourceOrigin = book.origin,
-                            modifier = Modifier
-                                .width(56.dp)
-                                .aspectRatio(5f / 7f),
-                            coverModifier = Modifier.fillMaxSize(),
+                        HorizontalPager(
+                            state = pagerState,
+                            modifier = Modifier.fillMaxSize(),
+                            userScrollEnabled = books.size > 1,
+                            key = { index -> books[index].recentBookKey() },
+                        ) { index ->
+                            RecentBookPage(
+                                book = books[index],
+                                position = if (books.size > 1) {
+                                    stringResource(R.string.home_recent_book_position, index + 1, books.size)
+                                } else {
+                                    null
+                                },
+                                stackWidth = stackWidth,
+                                onBookClick = onBookClick,
+                            )
+                        }
+
+                        RecentBookStack(
+                            books = books,
+                            pagerState = pagerState,
+                            stackWidth = stackWidth,
+                            coverColors = coverColors,
+                            landingVisible = { landingVisible.value },
+                            modifier = Modifier.matchParentSize(),
                             sharedTransitionScope = sharedTransitionScope,
                             animatedVisibilityScope = animatedVisibilityScope,
-                            sharedCoverKey = book.bookUrl?.let { "home_recent_$it" },
                         )
-                        Column(
-                            modifier = Modifier.weight(1f),
-                            verticalArrangement = Arrangement.spacedBy(6.dp),
-                        ) {
-                            AppText(
-                                text = book.name,
-                                style = LegadoTheme.typography.titleMediumEmphasized,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                            AppText(
-                                text = book.author,
-                                style = LegadoTheme.typography.bodySmall,
-                                color = LegadoTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                            val chapterTitle = book.chapterTitle?.takeIf { it.isNotBlank() }
-                            if (chapterTitle != null || book.chapterProgress != null) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                ) {
-                                    chapterTitle?.let { chapter ->
-                                        AppText(
-                                            text = chapter,
-                                            modifier = Modifier
-                                                .weight(1f)
-                                                .basicMarquee(),
-                                            style = LegadoTheme.typography.bodySmall,
-                                            color = LegadoTheme.colorScheme.onSurfaceVariant,
-                                            maxLines = 1,
-                                            softWrap = false,
-                                            overflow = TextOverflow.Clip,
-                                        )
-                                    } ?: Spacer(modifier = Modifier.weight(1f))
-                                    book.chapterProgress?.let { progress ->
-                                        val percent = remember(progress) {
-                                            (progress * 100f)
-                                                .roundToInt()
-                                                .coerceIn(0, 100)
-                                        }
-                                        TextCard(
-                                            text = "$percent%",
-                                            backgroundColor = LegadoTheme.colorScheme.secondaryContainer,
-                                            contentColor = LegadoTheme.colorScheme.onSecondaryContainer,
-                                            cornerRadius = 6.dp,
-                                            horizontalPadding = 6.dp,
-                                            verticalPadding = 2.dp,
-                                        )
-                                    }
-                                }
-                            }
-                        }
                     }
                 }
             }
@@ -999,66 +1003,413 @@ private fun RecentBookCard(
     }
 }
 
+private val RecentBookDetailsTopPadding = 10.dp
+private val RecentBookDetailsBottomPadding = 14.dp
+private val RecentBookDetailsSpacing = 6.dp
+
+@Composable
+private fun recentBookBodyHeight(): Dp {
+    val typography = LegadoTheme.typography
+    val measurer = rememberTextMeasurer(cacheSize = 3)
+    val density = LocalDensity.current
+    // Include common fallback glyphs and reserve space independently of the selected book.
+    val sample = "Ag中📚"
+    val title = measurer.measure(
+        "$sample\n$sample",
+        style = typography.titleMediumEmphasized,
+        maxLines = 2,
+    ).size.height
+    val metadataLine = measurer.measure(sample, style = typography.bodySmall, maxLines = 1).size.height
+    val progressLabel = measurer.measure("100%", style = typography.labelSmall, maxLines = 1).size.height
+    return with(density) {
+        val details = title + metadataLine * 2 + progressLabel.coerceAtLeast(3.dp.roundToPx()) +
+            RecentBookDetailsTopPadding.roundToPx() + RecentBookDetailsBottomPadding.roundToPx() +
+            RecentBookDetailsSpacing.roundToPx() * 3
+        details.toDp().coerceAtLeast(120.dp)
+    }
+}
+
+@Composable
+private fun RecentBookCoverGlow(
+    books: ImmutableList<HomeRecentBookUi>,
+    coverColors: Map<Pair<String, String?>, Color>,
+    pagerState: PagerState,
+    modifier: Modifier,
+) {
+    val fallback = LegadoTheme.colorScheme.secondary
+    val strength = if (LegadoTheme.isDark) 0.13f else 0.09f
+    val tints = books.map { book ->
+        key(book.recentBookKey()) {
+            animateColorAsState(
+                targetValue = coverColors[book.recentCoverColorKey()] ?: fallback,
+                label = "RecentCoverTint",
+            )
+        }
+    }
+    Canvas(modifier) {
+        val page = pagerState.recentBookPosition(tints.lastIndex)
+        val start = page.toInt()
+        val end = (start + 1).coerceAtMost(tints.lastIndex)
+        val tint = lerp(tints[start].value, tints[end].value, page - start)
+        val coverCenter = 49.dp.toPx().coerceAtMost(size.width / 2f)
+        val center = Offset(
+            x = if (layoutDirection == LayoutDirection.Rtl) size.width - coverCenter else coverCenter,
+            y = size.height / 2f + 9.dp.toPx(),
+        )
+        val radius = 152.dp.toPx()
+        drawCircle(
+            brush = Brush.radialGradient(
+                0f to tint.copy(alpha = strength),
+                0.55f to tint.copy(alpha = strength * 0.50f),
+                1f to tint.copy(alpha = 0f),
+                center = center,
+                radius = radius,
+            ),
+            center = center,
+            radius = radius,
+        )
+    }
+}
+
+@Composable
+private fun RecentBookPageIndicator(pagerState: PagerState, pageCount: Int) {
+    val colors = LegadoTheme.colorScheme
+    val inactive = colors.onSurfaceVariant.copy(alpha = 0.25f)
+    Canvas(Modifier.size(width = 12.dp * pageCount, height = 8.dp)) {
+        val page = pagerState.recentBookPosition(pageCount - 1)
+        val height = 4.dp.toPx()
+        repeat(pageCount) { index ->
+            val emphasis = (1f - abs(index - page)).coerceIn(0f, 1f)
+            val width = (4.dp + 6.dp * emphasis).toPx()
+            val startCenter = 12.dp.toPx() * (index + 0.5f)
+            val center = if (layoutDirection == LayoutDirection.Rtl) {
+                size.width - startCenter
+            } else {
+                startCenter
+            }
+            drawRoundRect(
+                color = lerp(inactive, colors.primary, emphasis),
+                topLeft = Offset(center - width / 2f, (size.height - height) / 2f),
+                size = Size(width, height),
+                cornerRadius = CornerRadius(height / 2f),
+            )
+        }
+    }
+}
+
+@Composable
+private fun RecentBookPage(
+    book: HomeRecentBookUi,
+    position: String?,
+    stackWidth: Dp,
+    onBookClick: (String) -> Unit,
+) {
+    val continueReading = stringResource(R.string.continue_read)
+    val clickModifier = book.bookUrl?.let { url ->
+        Modifier.clickable(role = Role.Button, onClickLabel = continueReading) { onBookClick(url) }
+    } ?: Modifier
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .then(clickModifier)
+            .semantics(mergeDescendants = true) {
+                position?.let { stateDescription = it }
+            },
+        contentAlignment = Alignment.CenterStart,
+    ) {
+        // Pager pages keep their measured height and expose the text and click action.
+        // The overlay draws the visible copy so its perspective can extend past the pager.
+        RecentBookDetails(
+            book = book,
+            stackWidth = stackWidth,
+            modifier = Modifier.drawWithContent {},
+            marquee = false,
+        )
+    }
+}
+
+@Composable
+private fun RecentBookDetails(
+    book: HomeRecentBookUi,
+    stackWidth: Dp,
+    modifier: Modifier = Modifier,
+    marquee: Boolean = true,
+    coverColor: Color? = null,
+) {
+    val colors = LegadoTheme.colorScheme
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(
+                start = 30.dp + stackWidth,
+                top = RecentBookDetailsTopPadding,
+                end = 16.dp,
+                bottom = RecentBookDetailsBottomPadding,
+            )
+            .then(modifier),
+        verticalArrangement = Arrangement.spacedBy(RecentBookDetailsSpacing),
+    ) {
+        AppText(
+            text = book.name,
+            style = LegadoTheme.typography.titleMediumEmphasized,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
+        AppText(
+            text = book.author,
+            style = LegadoTheme.typography.bodySmall,
+            color = colors.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        book.chapterTitle?.takeIf { it.isNotBlank() }?.let { chapter ->
+            AppText(
+                text = chapter,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .then(
+                        if (marquee) Modifier.basicMarquee() else Modifier,
+                    ),
+                style = LegadoTheme.typography.bodySmall,
+                color = colors.onSurfaceVariant,
+                maxLines = 1,
+                softWrap = false,
+                overflow = TextOverflow.Clip,
+            )
+        }
+        book.chapterProgress?.let { progress ->
+            val normalizedProgress = progress.coerceIn(0f, 1f)
+            val accent = coverColor?.let { lerp(colors.primary, it, 0.45f) } ?: colors.primary
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                RecentReadingProgress(
+                    progress = normalizedProgress,
+                    color = accent,
+                    modifier = Modifier.weight(1f),
+                )
+                AppText(
+                    text = "${(normalizedProgress * 100f).roundToInt()}%",
+                    style = LegadoTheme.typography.labelSmall,
+                    color = colors.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
+private fun HomeRecentBookUi.recentBookKey(): String =
+    bookUrl?.let { "book:$it" } ?: "record:${name.length}:$name$author"
+
+private fun HomeRecentBookUi.recentCoverColorKey(): Pair<String, String?> =
+    recentBookKey() to coverPath
+
+private fun PagerState.recentBookPosition(lastIndex: Int): Float =
+    (currentPage + currentPageOffsetFraction).coerceIn(0f, lastIndex.toFloat())
+
+@OptIn(ExperimentalSharedTransitionApi::class)
+@Composable
+private fun RecentBookStack(
+    books: ImmutableList<HomeRecentBookUi>,
+    pagerState: PagerState,
+    stackWidth: Dp,
+    coverColors: MutableMap<Pair<String, String?>, Color>,
+    landingVisible: () -> Boolean,
+    modifier: Modifier,
+    sharedTransitionScope: SharedTransitionScope?,
+    animatedVisibilityScope: AnimatedVisibilityScope?,
+) {
+    val lastIndex = books.lastIndex
+    val position = remember(pagerState, lastIndex) { { pagerState.recentBookPosition(lastIndex) } }
+    val basePage by remember(position) { derivedStateOf { floor(position()).toInt() } }
+    val settledPage = pagerState.settledPage
+    val lifecycleState by LocalLifecycleOwner.current.lifecycle.currentStateAsState()
+    val direction = if (LocalLayoutDirection.current == LayoutDirection.Rtl) -1f else 1f
+    val textPivot = TransformOrigin(if (direction < 0f) 1f else 0f, 0.5f)
+    val resources = LocalContext.current.resources
+    val fallback = LegadoTheme.colorScheme.secondary
+    val overlay = with(sharedTransitionScope) {
+        if (this == null) Modifier else Modifier.renderInSharedTransitionScopeOverlay {
+            pagerState.isScrollInProgress &&
+                lifecycleState.isAtLeast(Lifecycle.State.RESUMED) &&
+                landingVisible() && !isTransitionActive
+        }
+    }
+
+    Box(
+        modifier = modifier
+            .clearAndSetSemantics { hideFromAccessibility() }
+            .then(overlay),
+        contentAlignment = Alignment.CenterStart,
+    ) {
+        Box(Modifier
+            .padding(start = 16.dp)
+            .height(108.dp)) {
+            for (index in (basePage + 3).coerceAtMost(lastIndex) downTo basePage + 1) {
+                key(books[index].recentBookKey()) {
+                    RecentStackedCover(
+                        book = books[index],
+                        transform = {
+                            val depth = (index - position()).coerceIn(0f, 3f)
+                            translationX = direction * 8.dp.toPx() * depth
+                            translationY = 4.dp.toPx() * depth
+                            rotationZ = direction * (-3f + 4f * depth.coerceAtMost(2f))
+                            alpha = when {
+                                depth < 1f -> depth * depth
+                                depth < 2f -> 1f - 0.18f * (depth - 1f)
+                                else -> 0.82f * (3f - depth)
+                            }
+                        },
+                    )
+                }
+            }
+        }
+
+        for (index in basePage..(basePage + 1).coerceAtMost(lastIndex)) {
+            val book = books[index]
+            val isSettledBook = index == settledPage
+            key(book.recentBookKey()) {
+                val colorKey = book.recentCoverColorKey()
+                val coverColor = coverColors[colorKey]
+                var image by remember(colorKey) { mutableStateOf<Image?>(null) }
+                LaunchedEffect(image, coverColors) {
+                    val loaded = image ?: return@LaunchedEffect
+                    loaded.extractSeedColor(resources, fallback)?.let { coverColors[colorKey] = it }
+                }
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .zIndex(if (isSettledBook) 0f else 1f),
+                    contentAlignment = Alignment.CenterStart,
+                ) {
+                    Box(Modifier
+                        .padding(start = 16.dp)
+                        .height(108.dp)) {
+                        RecentStackedCover(
+                            book = book,
+                            transform = {
+                                val distance = abs(index - position()).coerceAtMost(1f)
+                                projectRecentReadingDepth(
+                                    distance = distance,
+                                    depthAtEdge = if (isSettledBook) -0.18f else 0.52f,
+                                    pitchAtEdge = if (isSettledBook) 10f else -24f,
+                                )
+                                rotationZ = -3f * direction
+                            },
+                            sharedCoverKey = book.bookUrl?.let { "home_recent_$it" },
+                            sharedTransitionScope = sharedTransitionScope,
+                            animatedVisibilityScope = animatedVisibilityScope,
+                            onImageLoaded = { image = it },
+                        )
+                    }
+                    RecentBookDetails(
+                        book = book,
+                        stackWidth = stackWidth,
+                        marquee = isSettledBook,
+                        coverColor = coverColor,
+                        modifier = Modifier.graphicsLayer {
+                            val distance = abs(index - position()).coerceAtMost(1f)
+                            projectRecentReadingDepth(
+                                distance = distance,
+                                depthAtEdge = if (isSettledBook) -0.12f else 0.32f,
+                                pitchAtEdge = if (isSettledBook) 7f else -15f,
+                            )
+                            // Fade most of the outgoing title before the new title occupies its line.
+                            alpha = if (isSettledBook) {
+                                (1f - distance / 0.44f).coerceAtLeast(0f)
+                            } else {
+                                (1f - distance / 0.72f).coerceAtLeast(0f)
+                            }
+                            transformOrigin = textPivot
+                        },
+                    )
+                }
+            }
+        }
+    }
+}
+
+private fun GraphicsLayerScope.projectRecentReadingDepth(
+    distance: Float,
+    depthAtEdge: Float,
+    pitchAtEdge: Float,
+) {
+    // Perspective makes the nearer page larger while both landing points stay fixed.
+    alpha = 1f - distance
+    scaleX = 1f / (1f - depthAtEdge * distance)
+    scaleY = scaleX
+    rotationX = pitchAtEdge * distance
+    cameraDistance = maxOf(480.dp.toPx(), size.height * 2f)
+}
+
+@OptIn(ExperimentalSharedTransitionApi::class)
+@Composable
+private fun RecentStackedCover(
+    book: HomeRecentBookUi,
+    transform: GraphicsLayerScope.() -> Unit,
+    sharedCoverKey: String? = null,
+    sharedTransitionScope: SharedTransitionScope? = null,
+    animatedVisibilityScope: AnimatedVisibilityScope? = null,
+    onImageLoaded: ((Image) -> Unit)? = null,
+) {
+    val coverShadow = remember {
+        Shadow(
+            radius = 3.dp,
+            color = Color.Black.copy(alpha = 0.16f),
+            offset = DpOffset(0.dp, 1.5.dp),
+        )
+    }
+    BookshelfCover(
+        name = book.name,
+        author = book.author,
+        path = book.coverPath,
+        sourceOrigin = book.origin,
+        bookUrl = book.bookUrl,
+        radius = 5.dp,
+        modifier = Modifier
+            .offset(x = 4.dp, y = 4.dp)
+            .width(58.dp)
+            .aspectRatio(5f / 7f)
+            .graphicsLayer {
+                transform()
+                // Keep the whole shadow in the same buffer on both sides of alpha == 1.
+                compositingStrategy = CompositingStrategy.Offscreen
+                outsets = LayerOutsets(6.dp)
+            },
+        coverModifier = Modifier.fillMaxSize(),
+        sharedTransitionScope = sharedTransitionScope,
+        animatedVisibilityScope = animatedVisibilityScope,
+        sharedCoverKey = sharedCoverKey,
+        coverShadow = coverShadow,
+        onImageLoaded = onImageLoaded,
+    )
+}
+
 @Composable
 private fun RecentReadingProgress(
     progress: Float,
+    color: Color,
     modifier: Modifier = Modifier,
 ) {
-    val animatedProgress by animateFloatAsState(
-        targetValue = progress.coerceIn(0f, 1f),
-        label = "RecentReadingProgress",
-    )
-    val progressColor = LegadoTheme.colorScheme.primary
-    val trackColor = LegadoTheme.colorScheme.onSurface.copy(alpha = 0.10f)
-
-    Canvas(
-        modifier = modifier.height(48.dp),
-    ) {
-        val progressWidth = size.width * animatedProgress
-        val barHeight = 3.dp.toPx()
-        val glowHeight = size.height - barHeight
-        val stripHeight = 1.dp.toPx().coerceAtLeast(1f)
-        val maxDiffusion = 48.dp.toPx()
-
-        if (progressWidth > 0f) {
-            var y = 0f
-            while (y < glowHeight) {
-                val distanceFromTop = (y / glowHeight).coerceIn(0f, 1f)
-                val alpha = 0.18f * distanceFromTop * distanceFromTop
-                val diffusion = maxDiffusion * (1f - distanceFromTop)
-                val fadeStart = (progressWidth - diffusion * 0.15f)
-                    .coerceAtLeast(0f)
-                val fadeEnd = (progressWidth + diffusion)
-                    .coerceAtMost(size.width)
-                val height = stripHeight.coerceAtMost(glowHeight - y)
-
-                if (alpha > 0.001f && fadeEnd > fadeStart) {
-                    drawRect(
-                        brush = Brush.horizontalGradient(
-                            colors = listOf(
-                                progressColor.copy(alpha = alpha),
-                                progressColor.copy(alpha = 0f),
-                            ),
-                            startX = fadeStart,
-                            endX = fadeEnd,
-                        ),
-                        topLeft = Offset(0f, y),
-                        size = Size(fadeEnd, height),
-                    )
-                }
-                y += stripHeight
-            }
+    val track = LegadoTheme.colorScheme.onSurface.copy(alpha = 0.11f)
+    Canvas(modifier.height(3.dp)) {
+        val corners = CornerRadius(size.height / 2f)
+        drawRoundRect(color = track, cornerRadius = corners)
+        val filled = size.width * progress
+        if (filled > 0f) {
+            drawRoundRect(
+                color = color,
+                topLeft = Offset(
+                    if (layoutDirection == LayoutDirection.Rtl) size.width - filled else 0f,
+                    0f,
+                ),
+                size = Size(filled, size.height),
+                cornerRadius = corners,
+            )
         }
-        drawRect(
-            color = trackColor,
-            topLeft = Offset(0f, size.height - barHeight),
-            size = Size(size.width, barHeight),
-        )
-        drawRect(
-            color = progressColor,
-            topLeft = Offset(0f, size.height - barHeight),
-            size = Size(progressWidth, barHeight),
-        )
     }
 }
 
@@ -1124,6 +1475,7 @@ private fun ReadingGoalCard(
 
     GlassCard(
         modifier = Modifier.fillMaxWidth(),
+        containerColor = LegadoTheme.colorScheme.surfaceContainerLow,
         onClick = onClick,
     ) {
         Column(
@@ -1151,6 +1503,7 @@ private fun ReadingGoalCard(
                 MediumTonalButton(
                     onClick = onClick,
                     icon = Icons.Default.Edit,
+                    containerColor = LegadoTheme.colorScheme.surface,
                     contentDescription = stringResource(R.string.home_set_goal),
                 )
             }
@@ -1262,6 +1615,7 @@ private fun WebDavBackupCard(
 
     GlassCard(
         modifier = Modifier.fillMaxWidth(),
+        containerColor = LegadoTheme.colorScheme.surfaceContainerLow,
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -1315,6 +1669,7 @@ private fun WebDavBackupCard(
                         modifier = Modifier.weight(1f),
                         onClick = onBackup,
                         enabled = !isActionRunning,
+                        containerColor = LegadoTheme.colorScheme.surface,
                         icon = Icons.Default.CloudUpload,
                         text = stringResource(R.string.backup),
                     )
@@ -1322,6 +1677,7 @@ private fun WebDavBackupCard(
                         modifier = Modifier.weight(1f),
                         onClick = onRestore,
                         enabled = !isActionRunning,
+                        containerColor = LegadoTheme.colorScheme.surface,
                         icon = Icons.Default.CloudDownload,
                         text = stringResource(R.string.restore),
                     )
@@ -1329,6 +1685,7 @@ private fun WebDavBackupCard(
                         modifier = Modifier.weight(1f),
                         onClick = onOpenSettings,
                         enabled = !isActionRunning,
+                        containerColor = LegadoTheme.colorScheme.surface,
                         icon = Icons.Default.Settings,
                         text = stringResource(R.string.setting),
                     )
@@ -1345,7 +1702,6 @@ private fun HomeDashboardSettingsSheet(
     visibleSections: Set<HomeDashboardSection>,
     onSectionVisibilityChanged: (HomeDashboardSection, Boolean) -> Unit,
 ) {
-    if (!show) return
     AppModalBottomSheet(
         show = show,
         onDismissRequest = onDismissRequest,

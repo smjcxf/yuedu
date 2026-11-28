@@ -1,8 +1,10 @@
 package io.legado.app.ui.main.home
 
 import android.app.Application
+import android.graphics.Bitmap
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -19,6 +21,7 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTouchInput
@@ -26,17 +29,27 @@ import androidx.compose.ui.test.swipeLeft
 import androidx.compose.ui.test.swipeRight
 import androidx.compose.ui.test.swipeWithVelocity
 import androidx.compose.ui.unit.dp
+import coil3.Image
+import coil3.ImageLoader
+import coil3.asImage
+import coil3.intercept.Interceptor
+import coil3.request.ErrorResult
+import coil3.request.SuccessResult
 import io.legado.app.R
 import io.legado.app.data.repository.CoverAlbumRepository
 import io.legado.app.data.repository.SettingsRepository
 import io.legado.app.domain.model.HomeDashboardSection
+import io.legado.app.domain.model.CoverAlbumImageInput
 import io.legado.app.domain.model.settings.AppUiConfiguration
 import io.legado.app.domain.usecase.CoverAlbumUseCase
 import io.legado.app.help.config.AppConfigStore
 import io.legado.app.ui.theme.AppTheme
 import io.legado.app.ui.theme.LegadoTheme
+import io.legado.app.ui.widget.components.image.cover.BookCoverImage
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -44,6 +57,8 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.koin.core.context.loadKoinModules
+import org.koin.core.context.GlobalContext
 import org.koin.core.context.startKoin
 import org.koin.core.context.stopKoin
 import org.koin.dsl.module
@@ -52,6 +67,9 @@ import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import splitties.init.injectAsAppCtx
+import java.io.ByteArrayOutputStream
+import java.io.IOException
+import kotlin.math.roundToInt
 
 @RunWith(RobolectricTestRunner::class)
 @Config(application = Application::class, sdk = [35], qualifiers = "w720dp-h800dp-mdpi")
@@ -75,6 +93,128 @@ class HomeDimensionalBookshelfTest {
 
     @After
     fun tearDown() = stopKoin()
+
+    @Test
+    fun eachSpineDotUsesItsBookCoverColor() {
+        val red = "cover-fixture://red"
+        val green = "cover-fixture://green"
+        val fixtureColors = mapOf(red to android.graphics.Color.RED, green to android.graphics.Color.GREEN)
+        val application = RuntimeEnvironment.getApplication()
+        val loader = ImageLoader.Builder(application).components {
+            add(Interceptor { chain ->
+                val color = fixtureColors[chain.request.data.toString()] ?: return@Interceptor chain.proceed()
+                val bitmap = Bitmap.createBitmap(60, 84, Bitmap.Config.ARGB_8888)
+                bitmap.eraseColor(color)
+                SuccessResult(bitmap.asImage(), chain.request)
+            })
+        }.build()
+        loadKoinModules(module { single { loader } })
+        try {
+            val books = listOf(
+                HomeRecentBookUi("book:red", "Red book", "", null, red, null, null),
+                HomeRecentBookUi("book:green", "Green book", "", null, green, null, null),
+            ).toImmutableList()
+            compose.setContent {
+                AppTheme(AppUiConfiguration()) {
+                    Box(Modifier.width(400.dp)) {
+                        HomeDashboardContent(
+                            state = HomeUiState(
+                                visibleSections = persistentSetOf(HomeDashboardSection.DimensionalBookshelf),
+                                dimensionalShelfBooks = books,
+                            ),
+                            onIntent = {},
+                            onNavigateToReadRecord = {},
+                            onNavigateToReadRecordOverview = {},
+                            onBookDetails = {},
+                        )
+                    }
+                }
+            }
+
+            fun sampleDot(title: String, channel: (androidx.compose.ui.graphics.Color) -> Float) {
+                val book = compose.onNodeWithContentDescription(title).assertIsSelected()
+                val screen = compose.onRoot()
+                compose.waitUntil(timeoutMillis = 5_000) {
+                    val bounds = book.fetchSemanticsNode().boundsInRoot
+                    val x = (bounds.left + 8f).roundToInt()
+                    val y = (bounds.bottom - 8f).roundToInt()
+                    val pixels = screen.captureToImage().toPixelMap(x - 2, y - 2, 5, 5)
+                    (0 until 5).any { col -> (0 until 5).any { row -> channel(pixels[col, row]) > 0.4f } }
+                }
+            }
+
+            sampleDot("Red book") { it.red - maxOf(it.green, it.blue) }
+            compose.onNodeWithContentDescription(
+                application.getString(R.string.dimensional_bookshelf_next_book),
+            ).performClick()
+            sampleDot("Green book") { it.green - maxOf(it.red, it.blue) }
+        } finally {
+            loader.shutdown()
+        }
+    }
+
+    @Test
+    fun reportsTheAlreadyLoadedCustomDefaultWhenTheOriginalCoverFails() {
+        val bitmap = Bitmap.createBitmap(60, 84, Bitmap.Config.ARGB_8888)
+        bitmap.eraseColor(android.graphics.Color.MAGENTA)
+        val defaultImage = bitmap.asImage()
+        val png = ByteArrayOutputStream().use {
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)
+            it.toByteArray()
+        }
+        val album = GlobalContext.get().get<CoverAlbumUseCase>()
+        val previousAlbum = album.selection.value.albumId
+        val (testAlbum, defaultPath) = runBlocking {
+            val input = CoverAlbumImageInput("fallback.png") { png.inputStream() }
+            val albumId = album.importAlbum("Fallback cover", listOf(input), listOf(input))
+            album.selectAlbum(albumId)
+            albumId to album.selectedImagePaths(isDark = false).single()
+        }
+        val failOriginal = CompletableDeferred<Unit>()
+        val loader = ImageLoader.Builder(RuntimeEnvironment.getApplication()).components {
+            add(Interceptor { chain ->
+                if (chain.request.data == defaultPath) {
+                    SuccessResult(defaultImage, chain.request)
+                } else {
+                    failOriginal.await()
+                    ErrorResult(null, chain.request, IOException("Fixture cover failed"))
+                }
+            })
+        }.build()
+        loadKoinModules(module { single { loader } })
+        try {
+            var reported by mutableStateOf<Image?>(null)
+            var failed by mutableStateOf(false)
+            compose.setContent {
+                AppTheme(AppUiConfiguration()) {
+                    BookCoverImage(
+                        name = "Missing cover",
+                        author = "",
+                        path = "cover-fixture://missing",
+                        modifier = Modifier.size(width = 60.dp, height = 84.dp),
+                        onImageLoaded = { reported = it },
+                        onError = { failed = true },
+                    )
+                }
+            }
+
+            val cover = compose.onRoot()
+            compose.waitUntil(timeoutMillis = 5_000) {
+                val pixel = cover.captureToImage().toPixelMap(30, 42, 1, 1)[0, 0]
+                pixel.red > 0.8f && pixel.blue > 0.8f && pixel.green < 0.2f
+            }
+            compose.runOnIdle { assertEquals(null, reported) }
+            failOriginal.complete(Unit)
+            compose.waitUntil(timeoutMillis = 5_000) { failed && reported != null }
+        } finally {
+            failOriginal.complete(Unit)
+            loader.shutdown()
+            runBlocking {
+                album.selectAlbum(previousAlbum)
+                album.deleteAlbum(testAlbum)
+            }
+        }
+    }
 
     @Test
     fun shelfHeightStaysFixedWhenCaptionAndPagerChange() {

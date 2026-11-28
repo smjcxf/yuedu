@@ -113,7 +113,6 @@ class HomeViewModel(
 
     fun onIntent(intent: HomeIntent) {
         when (intent) {
-            HomeIntent.RecentBookClick -> openRecentBook()
             is HomeIntent.RecentHistoryBookClick -> openBook(intent.bookUrl)
             is HomeIntent.SelectSourceSet -> selectSourceSet(intent.sourceUrl)
             HomeIntent.DashboardSettingsClick -> {
@@ -164,11 +163,6 @@ class HomeViewModel(
             HomeIntent.DismissDialog -> _activeDialog.value = null
             HomeIntent.DismissSheet -> _activeSheet.value = null
         }
-    }
-
-    private fun openRecentBook() {
-        val bookUrl = uiState.value.recentBook?.bookUrl ?: return
-        openBook(bookUrl)
     }
 
     private fun openBook(bookUrl: String) {

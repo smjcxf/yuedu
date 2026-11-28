@@ -2524,6 +2524,7 @@
     <string name="homepage_layout_config_label">Layout Config</string>
     <string name="homepage_edit_raw_json">Edit Raw JSON (LayoutConfig)</string>
     <string name="home_recent_reading">Recently Reading</string>
+    <string name="home_recent_book_position">Book %1$d of %2$d</string>
     <string name="home_recent_books">Recent reading history</string>
     <string name="home_dashboard_settings">Home components</string>
     <string name="home_no_recent_reading">No reading history yet</string>
